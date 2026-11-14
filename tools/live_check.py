@@ -1,4 +1,4 @@
-"""텔레그램 없이 실제 사이트를 한 번씩 읽어 파싱되는지 확인한다. 실행: .venvScriptspython -X utf8 tools/live_check.py"""
+"""텔레그램 없이 실제 사이트를 한 번씩 읽어 파싱되는지 확인한다. 실행: .venv\\Scripts\\python -X utf8 tools/live_check.py"""
 import asyncio
 import sys
 from datetime import datetime, timezone
