@@ -92,6 +92,16 @@ def test_state(store):
     assert store.get_state("k") == "w"
 
 
+def test_count_sent_since(store):
+    store.mark_sent("a", "1", "instant", NOW)
+    store.mark_sent("a", "2", "instant", NOW - timedelta(days=1))
+    store.mark_dropped("a", "3")
+    store.upsert_post(post("4"), NOW)
+    store.enqueue_digest("ppomppu:coupon", "4", "핫딜", NOW)
+    store.pop_digest()
+    assert store.count_sent_since(NOW - timedelta(hours=1)) == 2
+
+
 def test_cleanup_removes_old_posts(store):
     store.upsert_post(post("old"), NOW - timedelta(days=100))
     store.mark_sent("ppomppu:coupon", "old", "instant", NOW - timedelta(days=100))

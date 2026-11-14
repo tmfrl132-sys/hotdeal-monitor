@@ -126,6 +126,13 @@ class Store:
         self.db.commit()
         return items
 
+    def count_sent_since(self, since: datetime) -> int:
+        """since 이후 실제로 보낸 글 수 (즉시 + 묶음)."""
+        return self.db.execute(
+            "SELECT COUNT(*) FROM handled WHERE how IN ('instant','digest') AND at >= ?",
+            (_iso(since),),
+        ).fetchone()[0]
+
     # ---- 처음 보는 소스 ----
     def source_seeded(self, source: str) -> bool:
         return self.db.execute("SELECT 1 FROM seeded_sources WHERE source=?",
