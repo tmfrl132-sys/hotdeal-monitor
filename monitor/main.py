@@ -123,7 +123,12 @@ class App:
                 text, chat = msg.get("text"), (msg.get("chat") or {}).get("id")
                 if not text or chat is None:
                     continue
-                reply = handle(text, chat, self.sec.chat_id, self.store, self.status, _now())
+                try:
+                    reply = handle(text, chat, self.sec.chat_id, self.store, self.status, _now())
+                except Exception:
+                    log.exception("명령 처리 실패: %s", text[:40])
+                    reply = "명령을 처리하지 못했습니다. 로그를 확인해 주세요." \
+                        if chat == self.sec.chat_id else None
                 if reply:
                     await self.notify(reply)
 

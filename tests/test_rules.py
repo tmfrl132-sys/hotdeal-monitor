@@ -39,6 +39,12 @@ def test_giftcard_discount_instant():
     assert (v.action, v.category) == ("instant", "상품권")
 
 
+def test_coupon_board_percent_without_giftcard_word_not_instant():
+    # 쿠폰게시판 기본 카테고리가 상품권이어도, 상품권 단어 없는 % 글은 즉시알림이 아니다
+    v = j(mk("[슈퍼SOL] 오늘도 돌려요! 100% 당첨 룰렛!", source="ppomppu:coupon"))
+    assert v.action != "instant"
+
+
 def test_giftcard_below_threshold_waits():
     v = j(mk("[G마켓] 신세계상품권 3% 할인"))
     assert (v.action, v.category) == ("wait", "상품권")

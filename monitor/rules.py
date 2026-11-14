@@ -74,7 +74,8 @@ def judge(post: Post, source: Source, s: Settings, instant: Keywords, exclude: K
     hit = _scoped_match(post.title, instant, category)
     if hit:
         return Verdict("instant", category, fire=_norm(hit) == _norm(FIRE_KEYWORD))
-    if category == "상품권":
+    # 게시판 기본값으로 상품권이 된 글은 제외: 제목에 상품권 단어가 있어야 한다
+    if category == "상품권" and _find(post.title, s.keywords.get("상품권", [])):
         d = parse_discount(post.title)
         if d is not None and d >= s.giftcard_min_discount:
             return Verdict("instant", category)

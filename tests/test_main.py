@@ -70,6 +70,39 @@ def test_maintain_sends_digest_once_per_slot(tmp_path):
     assert len(sent) == 1 and sent[0].startswith("📬 묶음 알림 (12:31)")
 
 
+def test_bot_loop_survives_command_error(tmp_path, monkeypatch):
+    import monitor.main as main_mod
+
+    calls = {"n": 0}
+
+    def boom(*a, **k):
+        raise ValueError("bad")
+
+    monkeypatch.setattr(main_mod, "handle", boom)
+
+    async def go():
+        app, client, sent = make_app(tmp_path, lambda: "")
+
+        async def updates(offset, timeout=30):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return [{"update_id": 5, "message": {"text": "/목록", "chat": {"id": 777}}}]
+            raise asyncio.CancelledError
+
+        app.bot.updates = updates
+        async with client:
+            try:
+                await app.run_bot()
+            except asyncio.CancelledError:
+                pass
+        offset = app.store.get_state("tg_offset")
+        app.store.close()
+        return offset
+
+    assert asyncio.run(go()) == "6"
+    assert calls["n"] == 2  # 예외 뒤에도 다음 수신으로 넘어갔다
+
+
 def test_status_lists_sources(tmp_path):
     app, client, _ = make_app(tmp_path, lambda: "")
     text = app.status()
