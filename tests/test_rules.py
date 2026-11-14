@@ -1,0 +1,132 @@
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+import pytest
+
+from monitor.config import load_settings
+from monitor.models import Post, Verdict
+from monitor.rules import categorize, judge, judge_youtube, parse_discount
+
+ROOT = Path(__file__).resolve().parents[1]
+NOW = datetime(2026, 11, 14, 3, 0, tzinfo=timezone.utc)
+S = load_settings(ROOT / "settings.yaml")
+SRC = {s.name: s for s in S.sources}
+INSTANT = [("쌀먹", None)]
+EXCLUDE = [("종료", None), ("품절", None), ("마감", None), ("질문", None), ("후기", None)]
+
+
+def mk(title, source="ppomppu:ppomppu", minutes_ago=1, rec=0, com=0, ended=False):
+    return Post(source, "1", title, "https://x", NOW - timedelta(minutes=minutes_ago), rec, com, ended)
+
+
+def j(post, instant=INSTANT, exclude=EXCLUDE):
+    return judge(post, SRC[post.source], S, instant, exclude, NOW)
+
+
+def test_parse_discount():
+    assert parse_discount("[컬쳐랜드] 문화상품권 5.5% 할인") == 5.5
+    assert parse_discount("10% 쿠폰 + 3%") == 10
+    assert parse_discount("할인 없음") is None
+
+
+def test_ssalmeok_is_instant_with_fire():
+    v = j(mk("○○모바일 0원 요금제 쌀먹", source="ppomppu:phone"))
+    assert v == Verdict("instant", "알뜰폰", fire=True)
+
+
+def test_giftcard_discount_instant():
+    v = j(mk("[G마켓] 신세계상품권 6% 할인"))
+    assert (v.action, v.category) == ("instant", "상품권")
+
+
+def test_giftcard_below_threshold_waits():
+    v = j(mk("[G마켓] 신세계상품권 3% 할인"))
+    assert (v.action, v.category) == ("wait", "상품권")
+
+
+def test_hotdeal_50pct_not_instant():
+    v = j(mk("[쿠팡] 니트 50% 할인"))
+    assert (v.action, v.category) == ("wait", "핫딜")
+
+
+def test_exclude_beats_instant():
+    assert j(mk("쌀먹 요금제 종료", source="ppomppu:phone")).action == "drop"
+
+
+def test_site_ended_flag_drops():
+    assert j(mk("쌀먹 요금제", source="ppomppu:phone", ended=True)).action == "drop"
+
+
+def test_keyword_match_ignores_case_and_spaces():
+    v = j(mk("쌀 먹 가능 요금제", source="ppomppu:phone"), instant=[("쌀먹", None)])
+    assert v.action == "instant"
+    v = j(mk("KT MVNO 특가", source="ppomppu:phone"), instant=[("mvno", None)])
+    assert v.action == "instant"
+
+
+def test_category_scoped_keyword():
+    scoped = [("스타벅스", "상품권")]
+    assert j(mk("스타벅스 모바일상품권 특가"), instant=scoped).action == "instant"
+    # 상품권 키워드가 없는 글은 핫딜 → 상품권 한정 키워드가 맞지 않는다
+    assert j(mk("스타벅스 텀블러 할인"), instant=scoped).action == "wait"
+
+
+def test_category_scoped_exclude():
+    v = j(mk("[쿠팡] 니트 품절임박", rec=99), exclude=[("품절", "상품권")])
+    assert v.action == "queue"
+
+
+def test_card_discontinue_community_instant():
+    v = j(mk("○○카드 단종 확정"))
+    assert v == Verdict("instant", "신용카드", fire=True, label="신용카드·단종")
+
+
+def test_giftcard_keyword_overrides_board_category():
+    assert categorize(mk("온누리상품권 10% 할인", source="ppomppu:money"), SRC["ppomppu:money"], S) == "상품권"
+
+
+def test_reaction_within_window_queues():
+    v = j(mk("[쿠팡] 니트", minutes_ago=20, rec=5))
+    assert v == Verdict("queue", "핫딜")
+
+
+def test_reaction_comments_threshold():
+    assert j(mk("[쿠팡] 니트", minutes_ago=20, com=20)).action == "queue"
+
+
+def test_reaction_late_needs_double():
+    assert j(mk("[쿠팡] 니트", minutes_ago=120, rec=5)).action == "wait"
+    assert j(mk("[쿠팡] 니트", minutes_ago=120, rec=10)).action == "queue"
+
+
+def test_reaction_expired_drops():
+    assert j(mk("[쿠팡] 니트", minutes_ago=7 * 60, rec=0)).action == "drop"
+
+
+def test_expired_post_drops_even_with_instant_keyword():
+    assert j(mk("쌀먹 요금제", source="ppomppu:phone", minutes_ago=7 * 60)).action == "drop"
+
+
+def test_none_reactions_never_queue():
+    p = Post("clien:jirum", "1", "니트", "u", NOW - timedelta(minutes=5), None, None)
+    assert j(p).action == "wait"
+
+
+@pytest.mark.parametrize("title,expected", [
+    ("○○카드 단종, 막차", Verdict("instant", "신용카드", fire=True, label="신용카드·단종")),
+    ("이번달 신용카드 추천", Verdict("instant", "신용카드")),
+    ("뚜레쥬르 50% 할인", Verdict("queue", "핫딜")),
+])
+def test_youtube_three_way(title, expected):
+    p = mk(title, source="youtube:jgb")
+    assert judge_youtube(p, S, EXCLUDE) == expected
+
+
+def test_youtube_discontinue_ignores_exclude():
+    p = mk("○○카드 발급중단 종료 임박", source="youtube:jgb")
+    assert judge_youtube(p, S, EXCLUDE).action == "instant"
+
+
+def test_youtube_other_video_excluded():
+    p = mk("라면 할인 종료", source="youtube:jgb")
+    assert judge_youtube(p, S, EXCLUDE).action == "drop"
