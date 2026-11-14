@@ -1,0 +1,16 @@
+[Unit]
+Description=Deal monitor (community deals to Telegram)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/deal-monitor
+ExecStart=/home/ubuntu/deal-monitor/.venv/bin/python -m monitor
+Restart=always
+RestartSec=30
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

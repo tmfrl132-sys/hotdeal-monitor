@@ -53,6 +53,22 @@ def test_exclude_beats_instant():
     assert j(mk("쌀먹 요금제 종료", source="ppomppu:phone")).action == "drop"
 
 
+@pytest.mark.parametrize("title", [
+    "헬모 쌀먹 이번에처음하는데 궁금한게있습니다.",
+    "헬모 쌀먹 셀프개통 친구추천 중복인가요? 처음이라 도와주십셔ㅠ",
+    "쌀먹 요금제 문의드립니다",
+])
+def test_default_exclude_drops_question_posts(title):
+    exclude = [(w, None) for w in S.default_exclude]
+    assert j(mk(title, source="ppomppu:phone"), exclude=exclude).action == "drop"
+
+
+def test_default_exclude_keeps_real_ssalmeok_deal():
+    exclude = [(w, None) for w in S.default_exclude]
+    v = j(mk("[헬로모바일] 7개월 0원 요금제 쌀먹 가능", source="ppomppu:phone"), exclude=exclude)
+    assert v.action == "instant"
+
+
 def test_site_ended_flag_drops():
     assert j(mk("쌀먹 요금제", source="ppomppu:phone", ended=True)).action == "drop"
 
