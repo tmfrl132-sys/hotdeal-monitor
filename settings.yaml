@@ -1,0 +1,58 @@
+# 딜 모니터 설정. 숫자와 키워드는 여기서만 바꾼다.
+# 즉시알림/제외 키워드는 처음 실행할 때만 DB에 들어가고, 이후에는 텔레그램 명령(/추가, /제외, /삭제)으로 관리한다.
+
+sources:
+  # 2분 주기
+  - {name: "ppomppu:coupon",  kind: ppomppu_rss, url: "https://www.ppomppu.co.kr/rss.php?id=coupon",  interval_sec: 120, categories: [상품권, 재테크], label: "뽐뿌 쿠폰게시판"}
+  - {name: "ppomppu:phone",   kind: ppomppu_rss, url: "https://www.ppomppu.co.kr/rss.php?id=phone",   interval_sec: 120, categories: [알뜰폰], label: "뽐뿌 휴대폰포럼"}
+  - {name: "ppomppu:ppomppu", kind: ppomppu_rss, url: "https://www.ppomppu.co.kr/rss.php?id=ppomppu", interval_sec: 120, categories: [핫딜], label: "뽐뿌게시판"}
+  # 10분 주기
+  - {name: "ppomppu:money",   kind: ppomppu_rss, url: "https://www.ppomppu.co.kr/rss.php?id=money",   interval_sec: 600, categories: [재테크], label: "뽐뿌 재테크포럼"}
+  - {name: "ppomppu:event",   kind: ppomppu_rss, url: "https://www.ppomppu.co.kr/rss.php?id=event",   interval_sec: 600, categories: [재테크], label: "뽐뿌 이벤트게시판"}
+  - {name: "ppomppu:stock",   kind: ppomppu_rss, url: "https://www.ppomppu.co.kr/rss.php?id=stock",   interval_sec: 600, categories: [재테크], label: "뽐뿌 증권포럼"}
+  - {name: "ppomppu:pmarket", kind: ppomppu_rss, url: "https://www.ppomppu.co.kr/rss.php?id=pmarket", interval_sec: 600, categories: [핫딜], label: "뽐뿌 쇼핑뽐뿌"}
+  - {name: "clien:jirum",     kind: clien,       url: "https://www.clien.net/service/board/jirum",    interval_sec: 600, categories: [핫딜, 상품권], label: "클리앙 알뜰구매"}
+  - {name: "fmkorea:hotdeal", kind: fmkorea,     url: "https://www.fmkorea.com/hotdeal",              interval_sec: 600, categories: [핫딜, 상품권], label: "FM코리아 핫딜"}
+  # 30분 주기
+  - {name: "youtube:jgb",     kind: youtube,     url: "https://www.youtube.com/feeds/videos.xml?channel_id=UC1KHW0JH7zToxC2H69axgzw", interval_sec: 1800, categories: [신용카드, 핫딜], label: "정가거부"}
+
+# 카테고리 지정용 제목 키워드
+keywords:
+  상품권: [상품권, 컬쳐랜드, 해피머니, 문화상품권, 신세계, 롯데상품권, 현대상품권, 온누리, 지류, 모바일상품권, 북앤라이프, 도서문화상품권, 기프트카드, 페이머니]
+  알뜰폰: [요금제, 알뜰폰, 유심, 쌀먹, 0원요금제, 데이터무제한, mvno]
+  재테크: [적금, 예금, 특판, 금리, 이벤트, 증권, 캐시백, 앱테크, 포인트, 리워드]
+  핫딜: []
+
+# 카드 단종 판정: 단종 키워드와 카드 키워드가 함께 있으면 단종 소식
+discontinue_keywords: [단종, 발급중단, 발급 중단, 막차]
+card_keywords: [카드, 신용카드, 체크카드, 연회비, 카드 추천]
+
+# 처음 실행할 때 DB에 넣을 기본 키워드
+default_instant: [쌀먹]
+default_exclude: [종료, 품절, 마감, 질문, 후기]
+
+# 상품권 카테고리에서 이 할인율(%) 이상이면 즉시알림
+giftcard_min_discount: 5
+
+# 반응 기준: window_min 안에 추천 또는 댓글이 기준 이상이면 묶음 알림.
+# window_min이 지나면 watch_hours까지는 기준의 2배가 필요하다. null은 그 조건을 쓰지 않음.
+reaction:
+  핫딜:   {window_min: 30, recommends: 5, comments: 20}
+  재테크: {window_min: 60, recommends: 3, comments: 15}
+  알뜰폰: {window_min: 60, recommends: 3, comments: 15}
+  상품권: {window_min: 30, recommends: 3, comments: null}
+watch_hours: 6
+
+# 묶음 알림 시각 (KST)
+digest_times: ["08:00", "12:30", "19:00"]
+
+# 글 하나에 카테고리가 여러 개 걸릴 때 우선순위
+category_priority: [상품권, 알뜰폰, 재테크, 핫딜]
+
+user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
+host_gap_sec: 2
+backoff_min: 30
+fail_alert_after: 3
+retention_days: 90
+db_path: data/monitor.db
+log_dir: logs
