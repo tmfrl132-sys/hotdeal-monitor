@@ -67,6 +67,12 @@ class FilterTest {
     }
 
     @Test
+    fun hiddenIdsAreRemoved() {
+        val v = visibleDeals(data, UserKeywords(), hidden = setOf("ppomppu:coupon:4"))
+        assertEquals(listOf("ppomppu:phone:1", "youtube:jgb:v"), ids(v))
+    }
+
+    @Test
     fun nextCategoryCycles() {
         assertEquals("상품권", nextCategory(null))
         assertEquals(null, nextCategory(FILTERS.last()))

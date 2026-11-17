@@ -38,6 +38,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tmfrl.hotdeal.data.HiddenStore
 import com.tmfrl.hotdeal.data.KeywordStore
 import com.tmfrl.hotdeal.data.Repository
 import com.tmfrl.hotdeal.model.FILTERS
@@ -79,6 +80,8 @@ fun SettingsScreen(onAddWidget: () -> Unit) {
     var word by remember { mutableStateOf("") }
     var category by remember { mutableStateOf<String?>(null) }
     val data = remember { Repository.forContext(context).cached() }
+    val hiddenStore = remember { HiddenStore.forContext(context) }
+    var hiddenCount by remember { mutableStateOf(hiddenStore.read().size) }
 
     fun change(transform: (UserKeywords) -> UserKeywords) {
         scope.launch {
@@ -101,7 +104,22 @@ fun SettingsScreen(onAddWidget: () -> Unit) {
                         color = SUBTLE, fontSize = 13.sp,
                     )
                 }
-                item { Button(onClick = onAddWidget) { Text("홈 화면에 위젯 추가") } }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = onAddWidget) { Text("홈 화면에 위젯 추가") }
+                        // 위젯에서 ✕로 숨긴 글을 모두 다시 보이게 한다
+                        OutlinedButton(
+                            enabled = hiddenCount > 0,
+                            onClick = {
+                                scope.launch {
+                                    hiddenStore.clear()
+                                    hiddenCount = 0
+                                    redrawAllWidgets(context)
+                                }
+                            },
+                        ) { Text("숨긴 글 ${hiddenCount}개 되돌리기") }
+                    }
+                }
 
                 item { Section("내 키워드") }
                 item {

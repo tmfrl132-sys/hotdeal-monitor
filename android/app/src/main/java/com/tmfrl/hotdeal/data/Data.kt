@@ -8,6 +8,9 @@ import com.tmfrl.hotdeal.model.encodeKeywords
 import com.tmfrl.hotdeal.model.parseDeals
 import com.tmfrl.hotdeal.model.parseKeywords
 import kotlinx.coroutines.Dispatchers
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.Json
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -73,6 +76,36 @@ class Repository(private val cacheFile: File, private val fetch: () -> String) {
 
     companion object {
         fun forContext(context: Context) = Repository(File(context.filesDir, "deals.json")) { httpGet(DEALS_URL) }
+    }
+}
+
+/** 위젯에서 ✕로 숨긴 글 id(hidden.json). 기기에만 저장한다. */
+class HiddenStore(private val file: File) {
+
+    fun read(): Set<String> = try {
+        if (file.exists()) Json.decodeFromString(ListSerializer(String.serializer()), file.readText()).toSet() else emptySet()
+    } catch (e: IllegalArgumentException) {
+        emptySet()
+    } catch (e: IOException) {
+        emptySet()
+    }
+
+    /** id를 숨긴다. 지금 deals.json에 없는 옛 id는 함께 지워 파일이 계속 커지지 않게 한다. */
+    suspend fun hide(id: String, current: Set<String>) = write { (it intersect current) + id }
+
+    suspend fun clear() = write { emptySet() }
+
+    private suspend fun write(transform: (Set<String>) -> Set<String>) = withContext(Dispatchers.IO) {
+        lock.withLock {
+            val after = transform(read())
+            writeAtomic(file, Json.encodeToString(ListSerializer(String.serializer()), after.sorted()))
+        }
+    }
+
+    companion object {
+        private val lock = Mutex()
+
+        fun forContext(context: Context) = HiddenStore(File(context.filesDir, "hidden.json"))
     }
 }
 

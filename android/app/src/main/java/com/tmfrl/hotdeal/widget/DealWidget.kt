@@ -14,6 +14,7 @@ import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.LocalSize
 import androidx.glance.action.ActionParameters
+import androidx.glance.action.actionParametersOf
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
@@ -45,6 +46,7 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.tmfrl.hotdeal.MainActivity
+import com.tmfrl.hotdeal.data.HiddenStore
 import com.tmfrl.hotdeal.data.KeywordStore
 import com.tmfrl.hotdeal.data.Repository
 import com.tmfrl.hotdeal.model.DealsData
@@ -103,7 +105,10 @@ class DealWidget : GlanceAppWidget() {
             state[DATA_VERSION]
             val category = state[CATEGORY]
             val data = Repository.forContext(context).cached()
-            val deals = data?.let { inCategory(visibleDeals(it, KeywordStore.forContext(context).read()), category) }
+            val deals = data?.let {
+                val visible = visibleDeals(it, KeywordStore.forContext(context).read(), HiddenStore.forContext(context).read())
+                inCategory(visible, category)
+            }
             WidgetContent(data, deals, category, Instant.now())
         }
     }
@@ -194,18 +199,40 @@ private fun Header(data: DealsData?, category: String?, now: Instant) {
     }
 }
 
-/** 한 줄을 누르면 원문(브라우저·유튜브 앱)을 연다. */
+/**
+ * 한 줄을 누르면 원문(브라우저·유튜브 앱)을 열고, 오른쪽 ✕를 누르면 그 글을 숨긴다.
+ * 홈 화면 위젯은 길게 누르기를 홈 화면 앱이 가져가서(이동·크기 조절) ✕ 버튼으로 숨긴다.
+ */
 @Composable
 private fun DealRow(deal: VisibleDeal, now: Instant) {
     val open = Intent(Intent.ACTION_VIEW, Uri.parse(deal.item.url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    Column(
+    Row(
         modifier = GlanceModifier.fillMaxWidth()
             .background(if (deal.fire) ROW_FIRE else ROW)
-            .cornerRadius(10.dp)
-            .padding(horizontal = 10.dp, vertical = 6.dp)
-            .clickable(actionStartActivity(open)),
+            .cornerRadius(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(
+            modifier = GlanceModifier.defaultWeight()
+                .padding(start = 10.dp, top = 6.dp, bottom = 6.dp)
+                .clickable(actionStartActivity(open)),
+        ) {
+            DealText(deal, now)
+        }
+        Box(
+            modifier = GlanceModifier.padding(horizontal = 10.dp, vertical = 10.dp)
+                .clickable(actionRunCallback<HideAction>(actionParametersOf(DEAL_ID to deal.item.id))),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("✕", style = style(SUBTLE, 13))
+        }
+    }
+}
+
+@Composable
+private fun DealText(deal: VisibleDeal, now: Instant) {
+    Column(modifier = GlanceModifier.fillMaxWidth()) {
+        Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             if (deal.fire) Text("🔥 ", style = style(FIRE, 12, bold = true))
             Text(deal.tag, style = style(tagColor(deal.tag), 11, bold = true))
             Spacer(GlanceModifier.width(6.dp))
@@ -222,6 +249,18 @@ private fun DealRow(deal: VisibleDeal, now: Instant) {
             style = style(SUBTLE, 10),
             maxLines = 1,
         )
+    }
+}
+
+private val DEAL_ID = ActionParameters.Key<String>("deal_id")
+
+/** ✕ 버튼: 그 글을 숨기고 모든 위젯을 다시 그린다. 숨긴 글은 앱 설정에서 되돌린다. */
+class HideAction : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        val id = parameters[DEAL_ID] ?: return
+        val current = Repository.forContext(context).cached()?.items?.map { it.id }?.toSet().orEmpty()
+        HiddenStore.forContext(context).hide(id, current)
+        redrawAllWidgets(context)
     }
 }
 

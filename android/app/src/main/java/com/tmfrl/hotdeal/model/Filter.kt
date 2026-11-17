@@ -22,12 +22,12 @@ fun matches(title: String, k: Keyword, category: String): Boolean {
 }
 
 /**
- * 종료된 글과 사용자 제외 키워드에 걸린 글은 숨긴다.
+ * 종료된 글, 위젯에서 ✕로 숨긴 글(hidden), 사용자 제외 키워드에 걸린 글은 숨긴다.
  * 수집기가 고른 글과 사용자 즉시 키워드에 맞는 글을 최신순으로 돌려준다.
  */
-fun visibleDeals(data: DealsData, keywords: UserKeywords): List<VisibleDeal> =
+fun visibleDeals(data: DealsData, keywords: UserKeywords, hidden: Set<String> = emptySet()): List<VisibleDeal> =
     data.items.mapNotNull { item ->
-        if (item.ended) return@mapNotNull null
+        if (item.ended || item.id in hidden) return@mapNotNull null
         if (keywords.exclude.any { matches(item.title, it, item.category) }) return@mapNotNull null
         val hit = keywords.instant.firstOrNull { matches(item.title, it, item.category) }
         if (item.pick == null && hit == null) return@mapNotNull null
