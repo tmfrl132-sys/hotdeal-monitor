@@ -27,8 +27,12 @@ jobs:
       - name: 테스트
         run: python -m pytest -q
       - name: deals.json 만들기
-        # 이전 deals.json을 이어받는다 (처음에는 없어서 새로 시작)
-        run: python -m monitor.publish --out site/deals.json --prev-url "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/deals.json"
+        # 이전 deals.json을 이어받는다 (처음에는 없어서 새로 시작).
+        # FM코리아는 GitHub 서버 IP를 HTTP 430으로 막아서 뺀다 (PC 상주 실행에서는 된다).
+        run: >-
+          python -m monitor.publish --out site/deals.json
+          --prev-url "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/deals.json"
+          --skip fmkorea:hotdeal
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

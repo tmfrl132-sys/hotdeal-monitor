@@ -93,10 +93,16 @@ def render(items: list[dict], sources: list[dict], now: datetime) -> dict:
     return {"version": 1, "generated_at": _iso(now), "sources": sources, "items": items}
 
 
-async def collect(s: Settings, client: httpx.AsyncClient) -> tuple[dict[Source, list[Post]], list[dict]]:
+def active_sources(s: Settings, skip: set[str]) -> list[Source]:
+    """켜진 소스 중 skip에 없는 것. GitHub 서버를 막는 소스(FM코리아 430)는 --skip으로 뺀다."""
+    return [x for x in s.sources if x.enabled and x.name not in skip]
+
+
+async def collect(s: Settings, client: httpx.AsyncClient,
+                  skip: set[str] = frozenset()) -> tuple[dict[Source, list[Post]], list[dict]]:
     fetcher = Fetcher(client, s.user_agent, s.host_gap_sec)
     posts_by_source, statuses = {}, []
-    for src in (x for x in s.sources if x.enabled):
+    for src in active_sources(s, set(skip)):
         try:
             posts = parse(src, await fetcher.get(src.url), datetime.now(timezone.utc))
             posts_by_source[src] = posts
@@ -123,11 +129,11 @@ async def load_prev(client: httpx.AsyncClient, url: str | None) -> list:
         return []
 
 
-async def run(out: Path, prev_url: str | None) -> dict:
+async def run(out: Path, prev_url: str | None, skip: set[str] = frozenset()) -> dict:
     s = load_settings()
     async with httpx.AsyncClient() as client:
         prev = await load_prev(client, prev_url)
-        posts_by_source, statuses = await collect(s, client)
+        posts_by_source, statuses = await collect(s, client, skip)
     now = datetime.now(timezone.utc)
     items = merge(prev, build_items(posts_by_source, s, now), now)
     doc = render(items, statuses, now)
@@ -140,10 +146,11 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="deals.json 만들기")
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--prev-url", default=None)
+    ap.add_argument("--skip", action="append", default=[], help="건너뛸 소스 이름 (여러 번 가능)")
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)
-    doc = asyncio.run(run(args.out, args.prev_url))
+    doc = asyncio.run(run(args.out, args.prev_url, set(args.skip)))
     ok = sum(1 for x in doc["sources"] if x["ok"])
     picked = sum(1 for x in doc["items"] if x["pick"])
     print(f"소스 {ok}/{len(doc['sources'])} 성공, 글 {len(doc['items'])}건 (고른 글 {picked}건)")

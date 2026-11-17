@@ -3,7 +3,7 @@ from pathlib import Path
 
 from monitor.config import load_settings
 from monitor.models import Post
-from monitor.publish import build_items, merge, render
+from monitor.publish import active_sources, build_items, merge, render
 
 ROOT = Path(__file__).resolve().parents[1]
 S = load_settings(ROOT / "settings.yaml")
@@ -72,6 +72,13 @@ def test_merge_sorts_newest_first():
 def test_merge_ignores_broken_prev_items():
     merged = merge([{"id": "x"}, "garbage"], [], NOW)
     assert merged == []
+
+
+def test_active_sources_skips_disabled_and_named():
+    names = [s.name for s in active_sources(S, skip={"fmkorea:hotdeal"})]
+    assert "fmkorea:hotdeal" not in names
+    assert "ppomppu:stock" not in names  # settings.yaml에서 꺼 둠
+    assert "clien:jirum" in names and "youtube:jgb" in names
 
 
 def test_render_document():
