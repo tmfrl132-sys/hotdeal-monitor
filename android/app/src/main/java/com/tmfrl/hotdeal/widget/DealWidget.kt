@@ -105,24 +105,26 @@ class DealWidget : GlanceAppWidget() {
             state[DATA_VERSION]
             val category = state[CATEGORY]
             val data = Repository.forContext(context).cached()
+            val hidden = HiddenStore.forContext(context).read()
             val deals = data?.let {
-                val visible = visibleDeals(it, KeywordStore.forContext(context).read(), HiddenStore.forContext(context).read())
-                inCategory(visible, category)
+                inCategory(visibleDeals(it, KeywordStore.forContext(context).read(), hidden), category)
             }
-            WidgetContent(data, deals, category, Instant.now())
+            WidgetContent(data, deals, category, hidden.isNotEmpty(), Instant.now())
         }
     }
 }
 
 @Composable
-private fun WidgetContent(data: DealsData?, deals: List<VisibleDeal>?, category: String?, now: Instant) {
+private fun WidgetContent(
+    data: DealsData?, deals: List<VisibleDeal>?, category: String?, canUndo: Boolean, now: Instant,
+) {
     Column(
         modifier = GlanceModifier.fillMaxSize()
             .background(BACKGROUND)
             .cornerRadius(20.dp)
             .padding(10.dp),
     ) {
-        Header(data, category, now)
+        Header(data, category, canUndo, now)
         Spacer(GlanceModifier.height(6.dp))
         when {
             data == null || deals == null -> Message("핫딜을 불러오는 중입니다. 눌러서 새로고침")
@@ -154,7 +156,7 @@ private fun Message(text: String) {
 private val NARROW = 220.dp
 
 @Composable
-private fun Header(data: DealsData?, category: String?, now: Instant) {
+private fun Header(data: DealsData?, category: String?, canUndo: Boolean, now: Instant) {
     val narrow = LocalSize.current.width < NARROW
     Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         if (!narrow) {
@@ -178,6 +180,18 @@ private fun Header(data: DealsData?, category: String?, now: Instant) {
                 true
             }
             Text(formatUpdated(data.generatedAt, ZoneId.systemDefault()), style = style(if (stale) FIRE else SUBTLE, 10))
+        }
+        // ✕로 숨긴 글이 있을 때만 보인다. 누를 때마다 가장 최근에 숨긴 글부터 하나씩 되살린다.
+        if (canUndo) {
+            Spacer(GlanceModifier.width(6.dp))
+            Box(
+                modifier = GlanceModifier.background(ROW)
+                    .cornerRadius(6.dp)
+                    .padding(horizontal = 6.dp, vertical = 1.dp)
+                    .clickable(actionRunCallback<UndoHideAction>()),
+            ) {
+                Text(if (narrow) "↶" else "↶ 되돌리기", style = style(TEXT, 11))
+            }
         }
         if (!narrow) {
             Spacer(GlanceModifier.width(6.dp))
@@ -260,6 +274,14 @@ class HideAction : ActionCallback {
         val id = parameters[DEAL_ID] ?: return
         val current = Repository.forContext(context).cached()?.items?.map { it.id }?.toSet().orEmpty()
         HiddenStore.forContext(context).hide(id, current)
+        redrawAllWidgets(context)
+    }
+}
+
+/** 되돌리기 버튼: 가장 최근에 숨긴 글을 다시 보이게 한다. */
+class UndoHideAction : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        HiddenStore.forContext(context).undo()
         redrawAllWidgets(context)
     }
 }

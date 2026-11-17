@@ -79,26 +79,45 @@ class Repository(private val cacheFile: File, private val fetch: () -> String) {
     }
 }
 
-/** 위젯에서 ✕로 숨긴 글 id(hidden.json). 기기에만 저장한다. */
+/**
+ * 위젯에서 ✕로 숨긴 글 id(hidden.json). 기기에만 저장한다.
+ * 숨긴 순서대로 저장해서 되돌리기(undo)는 가장 최근에 숨긴 글부터 살린다.
+ */
 class HiddenStore(private val file: File) {
 
-    fun read(): Set<String> = try {
-        if (file.exists()) Json.decodeFromString(ListSerializer(String.serializer()), file.readText()).toSet() else emptySet()
+    fun read(): Set<String> = readOrdered().toSet()
+
+    private fun readOrdered(): List<String> = try {
+        if (file.exists()) Json.decodeFromString(ListSerializer(String.serializer()), file.readText()) else emptyList()
     } catch (e: IllegalArgumentException) {
-        emptySet()
+        emptyList()
     } catch (e: IOException) {
-        emptySet()
+        emptyList()
     }
 
     /** id를 숨긴다. 지금 deals.json에 없는 옛 id는 함께 지워 파일이 계속 커지지 않게 한다. */
-    suspend fun hide(id: String, current: Set<String>) = write { (it intersect current) + id }
+    suspend fun hide(id: String, current: Set<String>) {
+        write { list -> list.filter { it in current && it != id } + id }
+    }
 
-    suspend fun clear() = write { emptySet() }
+    /** 가장 최근에 숨긴 글을 되살리고 그 id를 돌려준다. 숨긴 글이 없으면 null. */
+    suspend fun undo(): String? {
+        var restored: String? = null
+        write { list ->
+            restored = list.lastOrNull()
+            list.dropLast(1)
+        }
+        return restored
+    }
 
-    private suspend fun write(transform: (Set<String>) -> Set<String>) = withContext(Dispatchers.IO) {
+    suspend fun clear() {
+        write { emptyList() }
+    }
+
+    private suspend fun write(transform: (List<String>) -> List<String>) = withContext(Dispatchers.IO) {
         lock.withLock {
-            val after = transform(read())
-            writeAtomic(file, Json.encodeToString(ListSerializer(String.serializer()), after.sorted()))
+            val after = transform(readOrdered())
+            writeAtomic(file, Json.encodeToString(ListSerializer(String.serializer()), after))
         }
     }
 

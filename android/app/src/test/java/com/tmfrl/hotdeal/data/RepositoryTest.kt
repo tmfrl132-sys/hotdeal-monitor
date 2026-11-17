@@ -45,6 +45,31 @@ class RepositoryTest {
     }
 
     @Test
+    fun hiddenStoreUndoRestoresMostRecentFirst() = runTest {
+        val store = HiddenStore(tmp.root.resolve("hidden.json"))
+        val all = setOf("a", "b", "c")
+        store.hide("b", all)
+        store.hide("a", all)
+        store.hide("c", all)
+        assertEquals("c", store.undo())
+        assertEquals("a", store.undo())
+        assertEquals(setOf("b"), store.read())
+        assertEquals("b", store.undo())
+        assertNull(store.undo())
+    }
+
+    @Test
+    fun hidingAgainMovesToMostRecent() = runTest {
+        val store = HiddenStore(tmp.root.resolve("hidden.json"))
+        val all = setOf("a", "b")
+        store.hide("a", all)
+        store.hide("b", all)
+        store.hide("a", all)
+        assertEquals("a", store.undo())
+        assertEquals(setOf("b"), store.read())
+    }
+
+    @Test
     fun keywordStoreUpdatesFile() = runTest {
         val store = KeywordStore(tmp.root.resolve("keywords.json"))
         store.update { it.withInstant("쌀먹", null) }
