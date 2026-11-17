@@ -103,6 +103,26 @@ def test_bot_loop_survives_command_error(tmp_path, monkeypatch):
     assert calls["n"] == 2  # 예외 뒤에도 다음 수신으로 넘어갔다
 
 
+def test_local_mode_sends_to_page_without_telegram(tmp_path):
+    def handler(req):
+        assert req.url.host != "api.telegram.org"
+        return httpx.Response(200, text="")
+
+    s = replace(load_settings(ROOT / "settings.yaml"), db_path=tmp_path / "data" / "t.db")
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    from monitor.local import LocalNotifier
+    app = App(s, None, client, local=LocalNotifier(tmp_path / "data", open_browser=False))
+
+    async def go():
+        async with client:
+            await app.notify("🔥 [알뜰폰] 쌀먹\nhttps://a.com/1")
+        app.store.close()
+
+    asyncio.run(go())
+    assert app.bot is None
+    assert "https://a.com/1" in (tmp_path / "data" / "alerts.html").read_text(encoding="utf-8")
+
+
 def test_status_lists_sources(tmp_path):
     app, client, _ = make_app(tmp_path, lambda: "")
     text = app.status()

@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import signal
+import sys
 from datetime import datetime, timezone
 from logging.handlers import TimedRotatingFileHandler
 from zoneinfo import ZoneInfo
@@ -11,8 +12,9 @@ from zoneinfo import ZoneInfo
 import httpx
 
 from monitor.commands import handle
-from monitor.config import Secrets, Settings, load_secrets, load_settings
+from monitor.config import Secrets, Settings, load_secrets_optional, load_settings
 from monitor.fetcher import Fetcher
+from monitor.local import LocalNotifier, run_cli
 from monitor.messages import format_digest
 from monitor.models import Source
 from monitor.pipeline import is_paused, process, recheck_watching
@@ -44,19 +46,25 @@ def setup_logging(s: Settings) -> None:
 
 
 class App:
-    def __init__(self, s: Settings, sec: Secrets, client: httpx.AsyncClient):
+    def __init__(self, s: Settings, sec: Secrets | None, client: httpx.AsyncClient,
+                 local: LocalNotifier | None = None):
+        """sec가 None이면 로컬 모드: 알림은 local(콘솔 + 브라우저 페이지)로 간다."""
         self.s, self.sec = s, sec
         self.sources = [src for src in s.sources if src.enabled]
         self.by_name = {src.name: src for src in self.sources}
         self.store = Store(s.db_path)
         self.store.seed_keywords(s.default_instant, s.default_exclude)
         self.fetcher = Fetcher(client, s.user_agent, s.host_gap_sec)
-        self.bot = Bot(sec.bot_token, client)
+        self.bot = Bot(sec.bot_token, client) if sec else None
+        self.local = None if sec else (local or LocalNotifier(s.db_path.parent))
         self.health = {src.name: SourceHealth(src.label or src.name, s.fail_alert_after,
                                               s.backoff_min) for src in self.sources}
 
     async def notify(self, text: str) -> None:
-        await self.bot.send(self.sec.chat_id, text)
+        if self.bot:
+            await self.bot.send(self.sec.chat_id, text)
+        else:
+            await self.local.send(text)
 
     # ---- 상태 문구 (/상태) ----
     def status(self) -> str:
@@ -159,15 +167,32 @@ class App:
             self.store.set_state("last_cleanup", today)
 
     async def run(self) -> None:
-        await self.notify(f"🟢 딜 모니터 시작 (소스 {len(self.sources)}개)")
+        if self.bot:
+            await self.notify(f"🟢 딜 모니터 시작 (소스 {len(self.sources)}개)")
+        else:
+            log.info("로컬 모드로 시작 (소스 %d개). 알림 페이지: %s",
+                     len(self.sources), self.local.page.resolve())
+            log.info("키워드 관리는 다른 창에서: python -m monitor 추가 <키워드>")
         tasks = [asyncio.create_task(self.run_source(src)) for src in self.sources]
-        tasks += [asyncio.create_task(self.run_bot()), asyncio.create_task(self.run_maintenance())]
+        tasks.append(asyncio.create_task(self.run_maintenance()))
+        if self.bot:
+            tasks.append(asyncio.create_task(self.run_bot()))
         await asyncio.gather(*tasks)
+
+
+def _cli(args: list[str]) -> None:
+    s = load_settings()
+    store = Store(s.db_path)
+    store.seed_keywords(s.default_instant, s.default_exclude)
+    try:
+        print(run_cli(args, store, _now()))
+    finally:
+        store.close()
 
 
 async def _main() -> None:
     s = load_settings()
-    sec = load_secrets()
+    sec = load_secrets_optional()
     setup_logging(s)
     async with httpx.AsyncClient() as client:
         app = App(s, sec, client)
@@ -188,6 +213,12 @@ async def _main() -> None:
 
 
 def run() -> None:
+    for stream in (sys.stdout, sys.stderr):  # Windows 콘솔에서 한글·이모지 깨짐 방지
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+    if len(sys.argv) > 1:
+        _cli(sys.argv[1:])
+        return
     try:
         asyncio.run(_main())
     except KeyboardInterrupt:

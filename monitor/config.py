@@ -99,6 +99,14 @@ def load_settings(path: Path = ROOT / "settings.yaml") -> Settings:
     )
 
 
+def load_secrets_optional(env_file: Path = ROOT / ".env") -> Secrets | None:
+    """토큰이 없으면 None (로컬 모드). 토큰이 있는데 값이 잘못됐으면 종료한다."""
+    load_dotenv(env_file, override=False)
+    if not os.environ.get("TELEGRAM_BOT_TOKEN", "").strip():
+        return None
+    return load_secrets(env_file)
+
+
 def load_secrets(env_file: Path = ROOT / ".env") -> Secrets:
     load_dotenv(env_file, override=False)
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()

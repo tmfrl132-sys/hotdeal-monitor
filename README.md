@@ -7,6 +7,27 @@
 
 설계: [docs/superpowers/specs/2026-11-13-deal-monitor-design.md](docs/superpowers/specs/2026-11-13-deal-monitor-design.md)
 
+## 0. 바로 써 보기 (텔레그램 없이)
+
+`.env`가 없으면 **로컬 모드**로 동작합니다.
+
+1. `실행.bat`을 더블클릭합니다. 처음 실행할 때는 필요한 프로그램을 자동으로 설치합니다.
+2. 브라우저에 알림 페이지(`data/alerts.html`)가 열립니다. 이 페이지는 1분마다 새로고침되고, 🔥 글은 주황색으로 강조됩니다.
+3. 알림은 실행 창에도 찍힙니다.
+4. 키워드는 다른 명령 창에서 관리합니다. 텔레그램 명령에서 `/`만 뺀 형태입니다.
+
+```
+.venv\Scripts\python -m monitor 추가 상품권 컬쳐랜드
+.venv\Scripts\python -m monitor 제외 품절
+.venv\Scripts\python -m monitor 삭제 컬쳐랜드
+.venv\Scripts\python -m monitor 목록
+.venv\Scripts\python -m monitor 도움말
+```
+
+추가한 키워드는 실행 중인 프로그램에 바로 적용됩니다. 다시 시작할 필요가 없습니다.
+
+나중에 텔레그램을 연결하려면 아래 1~2절대로 `.env`를 만들고 다시 실행합니다. 그때부터는 알림이 텔레그램으로 갑니다.
+
 ## 1. 텔레그램 봇 만들기 (처음 한 번)
 
 1. 텔레그램에서 **@BotFather**를 찾아 `/newbot`을 보냅니다.
