@@ -67,6 +67,14 @@ class FilterTest {
     }
 
     @Test
+    fun laterPickedPostComesFirst() {
+        // 1시간 전에 올라왔지만 방금 골라진 글이 맨 위
+        val late = data.items[2].copy(pick = "queue", pickedAt = "2026-11-17T03:00:00Z")
+        val v = visibleDeals(data.copy(items = data.items + late.copy(id = "late")), UserKeywords())
+        assertEquals("late", v.first().item.id)
+    }
+
+    @Test
     fun hiddenIdsAreRemoved() {
         val v = visibleDeals(data, UserKeywords(), hidden = setOf("ppomppu:coupon:4"))
         assertEquals(listOf("ppomppu:phone:1", "youtube:jgb:v"), ids(v))

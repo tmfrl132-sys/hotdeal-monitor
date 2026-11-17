@@ -23,7 +23,7 @@ fun matches(title: String, k: Keyword, category: String): Boolean {
 
 /**
  * 종료된 글, 위젯에서 ✕로 숨긴 글(hidden), 사용자 제외 키워드에 걸린 글은 숨긴다.
- * 수집기가 고른 글과 사용자 즉시 키워드에 맞는 글을 최신순으로 돌려준다.
+ * 수집기가 고른 글과 사용자 즉시 키워드에 맞는 글을 최신순(골라진 시각, 없으면 올라온 시각)으로 돌려준다.
  */
 fun visibleDeals(data: DealsData, keywords: UserKeywords, hidden: Set<String> = emptySet()): List<VisibleDeal> =
     data.items.mapNotNull { item ->
@@ -37,7 +37,7 @@ fun visibleDeals(data: DealsData, keywords: UserKeywords, hidden: Set<String> = 
             tag = item.label.ifEmpty { item.category },
             byKeyword = item.pick == null,
         )
-    }.sortedByDescending { it.item.postedAt }
+    }.sortedByDescending { it.item.pickedAt ?: it.item.postedAt } // 둘 다 같은 형식(UTC ISO)이라 글자 순서 = 시간 순서
 
 /** null이면 전체. */
 fun inCategory(list: List<VisibleDeal>, category: String?): List<VisibleDeal> =

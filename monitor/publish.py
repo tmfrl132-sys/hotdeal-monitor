@@ -19,7 +19,7 @@ import httpx
 from monitor.config import Settings, load_settings
 from monitor.fetcher import Fetcher
 from monitor.models import Post, Source
-from monitor.rules import judge, judge_youtube
+from monitor.rules import LATE_MULTIPLIER, judge, judge_youtube
 from monitor.sources import parse
 
 log = logging.getLogger("monitor.publish")
@@ -59,6 +59,7 @@ def build_items(posts_by_source: dict[Source, list[Post]], s: Settings, now: dat
                 "pick": v.action if v.action in ("instant", "queue") else None,
                 "fire": v.fire,
                 "label": v.label,
+                "picked_at": None,  # merge가 처음 골라진 시각을 채운다
             })
     return items
 
@@ -74,6 +75,9 @@ def merge(prev: list, current: list[dict], now: datetime) -> list[dict]:
             # 한 번 고른 글은 나이 제한(6시간)이 지나도 계속 보인다
             item = {**item, "pick": old["pick"], "fire": item["fire"] or old.get("fire", False),
                     "label": item["label"] or old.get("label", "")}
+        if item["pick"]:
+            # 처음 골라진 시각. 앱은 이 순서로 보여줘서 늦게 골라진 글도 맨 위에 온다
+            item = {**item, "picked_at": (old or {}).get("picked_at") or _iso(now)}
         by_id[item["id"]] = item
 
     kept = []
@@ -89,8 +93,28 @@ def merge(prev: list, current: list[dict], now: datetime) -> list[dict]:
     return kept
 
 
-def render(items: list[dict], sources: list[dict], now: datetime) -> dict:
-    return {"version": 1, "generated_at": _iso(now), "sources": sources, "items": items}
+def rules_of(s: Settings, skip: set[str]) -> dict:
+    """앱의 '수집 기준' 화면에 보일 실제 기준 값. settings.yaml에서 그대로 옮긴다."""
+    return {
+        "instant_keywords": s.default_instant,
+        "exclude_keywords": s.default_exclude,
+        "giftcard_keywords": s.keywords.get("상품권", []),
+        "giftcard_min_discount": s.giftcard_min_discount,
+        "discontinue_keywords": s.discontinue_keywords,
+        "card_keywords": s.card_keywords,
+        "reaction": {k: {"window_min": r.window_min, "recommends": r.recommends, "comments": r.comments}
+                     for k, r in s.reaction.items()},
+        "late_multiplier": LATE_MULTIPLIER,
+        "watch_hours": s.watch_hours,
+        "keep_hours": KEEP_HOURS,
+        "keep_picked_hours": KEEP_PICKED_HOURS,
+        "sources": [{"label": x.label, "categories": list(x.categories)} for x in active_sources(s, skip)],
+    }
+
+
+def render(items: list[dict], sources: list[dict], now: datetime, rules: dict | None = None) -> dict:
+    return {"version": 1, "generated_at": _iso(now), "sources": sources, "items": items,
+            "rules": rules or {}}
 
 
 def active_sources(s: Settings, skip: set[str]) -> list[Source]:
@@ -136,7 +160,7 @@ async def run(out: Path, prev_url: str | None, skip: set[str] = frozenset()) -> 
         posts_by_source, statuses = await collect(s, client, skip)
     now = datetime.now(timezone.utc)
     items = merge(prev, build_items(posts_by_source, s, now), now)
-    doc = render(items, statuses, now)
+    doc = render(items, statuses, now, rules_of(s, set(skip)))
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(doc, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     return doc

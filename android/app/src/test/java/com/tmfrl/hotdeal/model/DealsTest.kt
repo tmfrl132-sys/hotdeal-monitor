@@ -44,6 +44,25 @@ class DealsTest {
     }
 
     @Test
+    fun parsesRulesAndPickedAt() {
+        val text = """{"generated_at":"x","items":[{"id":"a","title":"t","url":"u","posted_at":"p","picked_at":"q"}],
+            "rules":{"instant_keywords":["쌀먹"],"exclude_keywords":["종료"],"giftcard_keywords":["상품권"],
+            "giftcard_min_discount":5.0,"discontinue_keywords":["단종"],"card_keywords":["카드"],
+            "reaction":{"핫딜":{"window_min":30,"recommends":5,"comments":20},"상품권":{"window_min":30,"recommends":3,"comments":null}},
+            "late_multiplier":2,"watch_hours":6,"keep_hours":24,"keep_picked_hours":48,
+            "sources":[{"label":"뽐뿌게시판","categories":["핫딜"]}]}}"""
+        val d = parseDeals(text)
+        assertEquals("q", d.items.single().pickedAt)
+        assertEquals(listOf("쌀먹"), d.rules.instantKeywords)
+        assertEquals(5.0, d.rules.giftcardMinDiscount, 0.0)
+        assertEquals(20, d.rules.reaction.getValue("핫딜").comments)
+        assertNull(d.rules.reaction.getValue("상품권").comments)
+        assertEquals("뽐뿌게시판", d.rules.sources.single().label)
+        // 옛 deals.json(rules 없음)도 읽힌다
+        assertTrue(parseDeals(SAMPLE).rules.instantKeywords.isEmpty())
+    }
+
+    @Test
     fun roundTrips() {
         val d = parseDeals(SAMPLE)
         assertEquals(d, parseDeals(encodeDeals(d)))

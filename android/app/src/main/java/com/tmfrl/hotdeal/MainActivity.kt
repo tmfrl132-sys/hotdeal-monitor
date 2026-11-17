@@ -9,7 +9,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import com.tmfrl.hotdeal.ui.SettingsScreen
+import com.tmfrl.hotdeal.ui.MainScreen
 import com.tmfrl.hotdeal.widget.DealWidgetReceiver
 import com.tmfrl.hotdeal.work.RefreshWorker
 
@@ -23,7 +23,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         RefreshWorker.schedule(this)
         RefreshWorker.runOnce(this)
-        setContent { SettingsScreen(onAddWidget = ::requestPinWidget) }
+        setContent { MainScreen(onAddWidget = ::requestPinWidget) }
     }
 
     private fun requestPinWidget() {
