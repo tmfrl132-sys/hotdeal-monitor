@@ -1,0 +1,50 @@
+name: android
+on:
+  push:
+    branches: [main]
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+    tags: ["v*"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+      - name: 단위 테스트
+        run: gradle -p android testDebugUnitTest
+      - name: 디버그 빌드
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        run: gradle -p android assembleDebug
+
+      # 태그(v*)를 push하면 서명된 APK를 Releases에 올린다
+      - name: 서명 키 풀기
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+        run: echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/hotdeal.p12"
+      - name: 서명된 릴리스 빌드
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/hotdeal.p12
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          VERSION_NAME: ${{ github.ref_name }}
+        run: |
+          gradle -p android assembleRelease
+          cp android/app/build/outputs/apk/release/app-release.apk "hotdeal-monitor-${GITHUB_REF_NAME}.apk"
+      - name: Release에 올리기
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: hotdeal-monitor-${{ github.ref_name }}.apk

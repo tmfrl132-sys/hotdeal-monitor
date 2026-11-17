@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">핫딜 모니터</string>
+    <string name="widget_description">커뮤니티 핫딜·상품권·알뜰폰·카드 소식</string>
+    <string name="pin_not_supported">이 홈 화면 앱은 자동 추가를 지원하지 않습니다. 홈 화면을 길게 눌러 위젯 목록에서 추가하세요.</string>
+</resources>

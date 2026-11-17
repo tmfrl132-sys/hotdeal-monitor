@@ -7,7 +7,21 @@
 
 설계: [docs/superpowers/specs/2026-11-13-deal-monitor-design.md](docs/superpowers/specs/2026-11-13-deal-monitor-design.md)
 
-## 0. 바로 써 보기 (텔레그램 없이)
+## 태블릿 위젯 (기본 사용 방식)
+
+```
+GitHub Actions(collect.yml, 15분마다) → monitor.publish → deals.json → GitHub Pages
+                                                                 ↓
+태블릿 앱(android/, Glance 3×4 위젯) ← 15분마다 받음, 키워드 필터는 기기에서
+APK: v* 태그 push → android.yml 서명 빌드 → Releases
+```
+
+- deals.json에는 최근 24시간 글(고른 글은 48시간)이 모두 들어갑니다. `pick`은 수집기 판정입니다(`instant`/`queue`/없음).
+- 사용자 키워드는 앱 설정 화면에서 관리하고 기기에만 저장합니다. 공개 저장소에는 올라가지 않습니다.
+- 위젯: 머리줄의 `전체 ▾`를 누르면 카테고리가 바뀝니다. 줄을 누르면 원문이 열리고, `⟳`를 누르면 바로 새로 받습니다.
+- 수집 주기는 GitHub 사정에 따라 실제로 15~30분 간격입니다. 2분 즉시성이 필요하면 아래 상주 실행(PC·Oracle)을 함께 씁니다.
+
+## 0. PC에서 상주 실행 (텔레그램 없이)
 
 `.env`가 없으면 **로컬 모드**로 동작합니다.
 
