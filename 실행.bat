@@ -6,6 +6,6 @@ if not exist .venv\Scripts\python.exe (
   python -m venv .venv
   .venv\Scripts\python -m pip install -q -r requirements.txt
 )
-echo 딜 모니터를 시작합니다. 끄려면 이 창을 닫거나 Ctrl+C 를 누르세요.
+echo 핫딜 모니터를 시작합니다. 끄려면 이 창을 닫거나 Ctrl+C 를 누르세요.
 .venv\Scripts\python -m monitor
 pause

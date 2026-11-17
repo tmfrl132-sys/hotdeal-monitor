@@ -1,4 +1,4 @@
-# 딜 모니터 구현 계획
+# 핫딜 모니터 구현 계획
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -354,7 +354,7 @@ class Verdict:
     1. 소스 루프: 1초마다 소스별로 `last_run + interval` 도달 여부와 `ready`를 확인하고 → fetch → parse → process → 즉시알림을 send한다.
     2. 봇 루프: `updates` → `commands.handle` → 답장. offset은 state에 저장한다.
     3. 관리 루프: 30초마다 `recheck_watching`, 묶음 슬롯 확인 → `pop_digest` → `format_digest` → send하고, 하루 1번 `cleanup`을 한다.
-  - 시작할 때 소유자에게 `🟢 딜 모니터 시작 (소스 9개)`를 보낸다. 종료(Ctrl+C, SIGTERM) 때는 DB를 닫는다.
+  - 시작할 때 소유자에게 `🟢 핫딜 모니터 시작 (소스 9개)`를 보낸다. 종료(Ctrl+C, SIGTERM) 때는 DB를 닫는다.
   - `ParseError`도 실패로 센다.
 
 - [ ] **Step 1: 실패하는 테스트 작성**

@@ -17,7 +17,7 @@ PAGE = """<!doctype html>
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="refresh" content="60">
-<title>딜 모니터</title>
+<title>핫딜 모니터</title>
 <style>
 :root {{ --bg:#f6f7f9; --card:#fff; --text:#1d1f23; --muted:#6b7280; --link:#1d4ed8; --fire:#fff4e5; --fire-line:#f59e0b; --line:#e5e7eb; }}
 @media (prefers-color-scheme: dark) {{ :root {{ --bg:#111317; --card:#1b1e24; --text:#e8eaed; --muted:#9aa0a6; --link:#8ab4f8; --fire:#2b2112; --fire-line:#f59e0b; --line:#2d3139; }} }}
@@ -34,7 +34,7 @@ a {{ color:var(--link); }}
 .empty {{ color:var(--muted); text-align:center; padding:40px 0; }}
 </style></head>
 <body><main>
-<h1>딜 모니터</h1>
+<h1>핫딜 모니터</h1>
 <div class="sub">최근 알림 {count}건 · 1분마다 새로고침 · 마지막 갱신 {updated}</div>
 {body}
 </main></body></html>

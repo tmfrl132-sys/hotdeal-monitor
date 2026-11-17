@@ -16,7 +16,7 @@ PC에서 며칠 돌려 보고 기준이 마음에 들면 옮깁니다. 옮길 �
 
 ## 2. 코드와 데이터 옮기기 (PC의 Git Bash에서)
 
-PC에서 실행 중인 딜 모니터를 먼저 끕니다(Ctrl+C). 그다음 다음을 실행합니다.
+PC에서 실행 중인 핫딜 모니터를 먼저 끕니다(Ctrl+C). 그다음 다음을 실행합니다.
 
 ```bash
 cd ~/Desktop/ai연습하기/deal-monitor
@@ -46,7 +46,7 @@ sudo systemctl enable --now deal-monitor
 
 ## 4. 확인
 
-- 텔레그램에 `🟢 딜 모니터 시작`이 옵니다.
+- 텔레그램에 `🟢 핫딜 모니터 시작`이 옵니다.
 - `/상태`를 보내 소스가 ✅인지 봅니다.
 - 서버 로그: `journalctl -u deal-monitor -f` 또는 `tail -f ~/deal-monitor/logs/monitor.log`
 

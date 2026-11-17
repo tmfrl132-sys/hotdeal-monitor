@@ -168,7 +168,7 @@ class App:
 
     async def run(self) -> None:
         if self.bot:
-            await self.notify(f"🟢 딜 모니터 시작 (소스 {len(self.sources)}개)")
+            await self.notify(f"🟢 핫딜 모니터 시작 (소스 {len(self.sources)}개)")
         else:
             log.info("로컬 모드로 시작 (소스 %d개). 알림 페이지: %s",
                      len(self.sources), self.local.page.resolve())
@@ -209,7 +209,7 @@ async def _main() -> None:
             pass
         finally:
             app.store.close()
-            log.info("딜 모니터 종료")
+            log.info("핫딜 모니터 종료")
 
 
 def run() -> None:

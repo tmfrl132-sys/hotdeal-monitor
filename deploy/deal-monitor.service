@@ -1,5 +1,5 @@
 [Unit]
-Description=Deal monitor (community deals to Telegram)
+Description=Hot deal monitor (community deals to Telegram)
 After=network-online.target
 Wants=network-online.target
 
