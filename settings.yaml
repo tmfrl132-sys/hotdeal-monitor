@@ -1,15 +1,17 @@
 # 핫딜 모니터 설정. 숫자와 키워드는 여기서만 바꾼다.
-# 즉시알림/제외 키워드는 처음 실행할 때만 DB에 들어가고, 이후에는 텔레그램 명령(/추가, /제외, /삭제)으로 관리한다.
+# 즉시알림/제외 키워드 기본값은 모든 실행 방식이 쓴다.
+# - GitHub Actions(deals.json): 이 기본값으로 고르고, 사용자 키워드는 태블릿 앱 설정에서 더한다.
+# - PC 상주 실행: 처음 실행할 때 DB에 들어가고, 이후에는 명령(/추가, /제외, /삭제)으로 관리한다.
 
 sources:
   # 2분 주기
-  - {name: "ppomppu:coupon",  kind: ppomppu_rss, url: "https://www.ppomppu.co.kr/rss.php?id=coupon",  interval_sec: 120, categories: [상품권, 재테크], label: "뽐뿌 쿠폰게시판"}
+  - {name: "ppomppu:coupon",  kind: ppomppu_rss, url: "https://www.ppomppu.co.kr/rss.php?id=coupon",  interval_sec: 120, categories: [재테크, 상품권], label: "뽐뿌 쿠폰게시판"}
   - {name: "ppomppu:phone",   kind: ppomppu_rss, url: "https://www.ppomppu.co.kr/rss.php?id=phone",   interval_sec: 120, categories: [알뜰폰], label: "뽐뿌 휴대폰포럼"}
   - {name: "ppomppu:ppomppu", kind: ppomppu_rss, url: "https://www.ppomppu.co.kr/rss.php?id=ppomppu", interval_sec: 120, categories: [핫딜], label: "뽐뿌게시판"}
   # 10분 주기
   - {name: "ppomppu:money",   kind: ppomppu_rss, url: "https://www.ppomppu.co.kr/rss.php?id=money",   interval_sec: 600, categories: [재테크], label: "뽐뿌 재테크포럼"}
   - {name: "ppomppu:event",   kind: ppomppu_rss, url: "https://www.ppomppu.co.kr/rss.php?id=event",   interval_sec: 600, categories: [재테크], label: "뽐뿌 이벤트게시판"}
-  - {name: "ppomppu:stock",   kind: ppomppu_rss, url: "https://www.ppomppu.co.kr/rss.php?id=stock",   interval_sec: 600, categories: [재테크], label: "뽐뿌 증권포럼"}
+  - {name: "ppomppu:stock",   kind: ppomppu_rss, url: "https://www.ppomppu.co.kr/rss.php?id=stock",   interval_sec: 600, categories: [재테크], label: "뽐뿌 증권포럼", enabled: false}  # 시황 잡담이 대부분이라 끔
   - {name: "ppomppu:pmarket", kind: ppomppu_rss, url: "https://www.ppomppu.co.kr/rss.php?id=pmarket", interval_sec: 600, categories: [핫딜], label: "뽐뿌 쇼핑뽐뿌"}
   - {name: "clien:jirum",     kind: clien,       url: "https://www.clien.net/service/board/jirum",    interval_sec: 600, categories: [핫딜, 상품권], label: "클리앙 알뜰구매"}
   - {name: "fmkorea:hotdeal", kind: fmkorea,     url: "https://www.fmkorea.com/hotdeal",              interval_sec: 600, categories: [핫딜, 상품권], label: "FM코리아 핫딜"}
