@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
+import androidx.glance.LocalSize
 import androidx.glance.action.ActionParameters
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
@@ -144,11 +145,17 @@ private fun Message(text: String) {
     )
 }
 
+/** 이보다 좁으면 머리줄에서 제목·갱신 시각·설정을 빼고 필터와 새로고침만 남긴다(2칸 폭). */
+private val NARROW = 220.dp
+
 @Composable
 private fun Header(data: DealsData?, category: String?, now: Instant) {
+    val narrow = LocalSize.current.width < NARROW
     Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text("핫딜", style = style(TEXT, 14, bold = true))
-        Spacer(GlanceModifier.width(8.dp))
+        if (!narrow) {
+            Text("핫딜", style = style(TEXT, 14, bold = true))
+            Spacer(GlanceModifier.width(8.dp))
+        }
         // 누를 때마다 전체 → 상품권 → 알뜰폰 → 신용카드 → 재테크 → 핫딜 → 전체
         Box(
             modifier = GlanceModifier.background(CHIP)
@@ -159,7 +166,7 @@ private fun Header(data: DealsData?, category: String?, now: Instant) {
             Text("${category ?: "전체"} ▾", style = style(TEXT, 11, bold = true))
         }
         Spacer(GlanceModifier.defaultWeight())
-        if (data != null) {
+        if (data != null && !narrow) {
             val stale = try {
                 Duration.between(Instant.parse(data.generatedAt), now) > STALE
             } catch (e: DateTimeParseException) {
@@ -167,14 +174,16 @@ private fun Header(data: DealsData?, category: String?, now: Instant) {
             }
             Text(formatUpdated(data.generatedAt, ZoneId.systemDefault()), style = style(if (stale) FIRE else SUBTLE, 10))
         }
-        Spacer(GlanceModifier.width(6.dp))
-        Box(
-            modifier = GlanceModifier.background(ROW)
-                .cornerRadius(6.dp)
-                .padding(horizontal = 6.dp, vertical = 1.dp)
-                .clickable(actionStartActivity<MainActivity>()),
-        ) {
-            Text("설정", style = style(SUBTLE, 11))
+        if (!narrow) {
+            Spacer(GlanceModifier.width(6.dp))
+            Box(
+                modifier = GlanceModifier.background(ROW)
+                    .cornerRadius(6.dp)
+                    .padding(horizontal = 6.dp, vertical = 1.dp)
+                    .clickable(actionStartActivity<MainActivity>()),
+            ) {
+                Text("설정", style = style(SUBTLE, 11))
+            }
         }
         Box(
             modifier = GlanceModifier.padding(start = 8.dp, end = 2.dp)

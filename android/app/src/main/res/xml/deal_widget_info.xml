@@ -1,14 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 태블릿 기본 3×4 칸. 휴대폰에서도 줄여 쓸 수 있다. -->
+<!--
+  처음에는 2×2로 놓는다. 경제지표 위젯 옆처럼 남은 칸이 적어도 놓을 수 있게 하고,
+  놓은 뒤 길게 눌러 3×4 등 원하는 크기로 늘린다. (3×4로 시작하면 세로 화면에서 "빈 공간 없음"이 났다)
+-->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/widget_description"
     android:initialLayout="@layout/glance_default_loading_layout"
-    android:minWidth="250dp"
-    android:minHeight="250dp"
-    android:minResizeWidth="180dp"
+    android:minWidth="110dp"
+    android:minHeight="110dp"
+    android:minResizeWidth="110dp"
     android:minResizeHeight="110dp"
-    android:targetCellWidth="3"
-    android:targetCellHeight="4"
+    android:targetCellWidth="2"
+    android:targetCellHeight="2"
     android:resizeMode="horizontal|vertical"
     android:updatePeriodMillis="0"
     android:widgetCategory="home_screen" />
