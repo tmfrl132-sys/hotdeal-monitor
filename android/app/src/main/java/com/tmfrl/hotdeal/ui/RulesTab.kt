@@ -118,6 +118,17 @@ fun RulesTab(data: DealsData?) {
             }
         }
 
+        item {
+            Card {
+                Rule(
+                    "디지털 폐지줍기",
+                    "제목에 아래 단어가 있거나 ${rules.noiseMaxWon}원 이하의 금액이 있으면 숨깁니다. " +
+                        "내 즉시 키워드에 맞으면 보여주고, 설정 탭에서 모두 켤 수 있습니다.",
+                )
+                Words("단어", rules.noiseKeywords)
+            }
+        }
+
         item { Section("보관과 갱신") }
         item {
             Card {

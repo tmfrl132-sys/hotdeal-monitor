@@ -22,6 +22,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
@@ -114,6 +115,20 @@ fun SettingsTab(data: DealsData?, onAddWidget: () -> Unit) {
                         }
                     },
                 ) { Text("숨긴 글 ${hiddenCount}개 되돌리기") }
+            }
+        }
+
+        item { Section("디지털 폐지줍기") }
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("폐지줍기 글도 위젯에 보기", fontSize = 15.sp)
+                    Text("퀴즈 정답, 몇십 원 적립, 룰렛·뽑기 글입니다. 끄면 숨깁니다.", color = SUBTLE, fontSize = 12.sp)
+                }
+                Switch(
+                    checked = keywords.showNoise,
+                    onCheckedChange = { on -> change { it.copy(showNoise = on) } },
+                )
             }
         }
 

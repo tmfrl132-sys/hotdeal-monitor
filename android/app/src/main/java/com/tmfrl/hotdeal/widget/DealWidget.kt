@@ -49,11 +49,15 @@ import com.tmfrl.hotdeal.MainActivity
 import com.tmfrl.hotdeal.data.HiddenStore
 import com.tmfrl.hotdeal.data.KeywordStore
 import com.tmfrl.hotdeal.data.Repository
+import com.tmfrl.hotdeal.data.SavedStore
 import com.tmfrl.hotdeal.model.DealsData
+import com.tmfrl.hotdeal.model.SavedLink
 import com.tmfrl.hotdeal.model.VisibleDeal
+import com.tmfrl.hotdeal.model.addSaved
 import com.tmfrl.hotdeal.model.formatUpdated
 import com.tmfrl.hotdeal.model.inCategory
 import com.tmfrl.hotdeal.model.metaLine
+import com.tmfrl.hotdeal.model.newComments
 import com.tmfrl.hotdeal.model.nextCategory
 import com.tmfrl.hotdeal.model.visibleDeals
 import com.tmfrl.hotdeal.work.RefreshWorker
@@ -109,14 +113,19 @@ class DealWidget : GlanceAppWidget() {
             val deals = data?.let {
                 inCategory(visibleDeals(it, KeywordStore.forContext(context).read(), hidden), category)
             }
-            WidgetContent(data, deals, category, hidden.isNotEmpty(), Instant.now())
+            val saved = SavedStore.forContext(context).read()
+            WidgetContent(
+                data, deals, category, hidden.isNotEmpty(),
+                saved.map { it.url }.toSet(), saved.sumOf { it.newComments }, Instant.now(),
+            )
         }
     }
 }
 
 @Composable
 private fun WidgetContent(
-    data: DealsData?, deals: List<VisibleDeal>?, category: String?, canUndo: Boolean, now: Instant,
+    data: DealsData?, deals: List<VisibleDeal>?, category: String?, canUndo: Boolean,
+    savedUrls: Set<String>, newComments: Int, now: Instant,
 ) {
     Column(
         modifier = GlanceModifier.fillMaxSize()
@@ -124,7 +133,7 @@ private fun WidgetContent(
             .cornerRadius(20.dp)
             .padding(10.dp),
     ) {
-        Header(data, category, canUndo, now)
+        Header(data, category, canUndo, newComments, now)
         Spacer(GlanceModifier.height(6.dp))
         when {
             data == null || deals == null -> Message("핫딜을 불러오는 중입니다. 눌러서 새로고침")
@@ -133,8 +142,9 @@ private fun WidgetContent(
             )
             else -> LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
                 items(deals, itemId = { it.item.id.hashCode().toLong() }) { deal ->
-                    Column {
-                        DealRow(deal, now)
+                    // 오른쪽을 비워 스크롤 막대가 ☆·✕ 버튼 위에 겹치지 않게 한다
+                    Column(modifier = GlanceModifier.fillMaxWidth().padding(end = SCROLLBAR_GAP)) {
+                        DealRow(deal, deal.item.url in savedUrls, now)
                         Spacer(GlanceModifier.height(4.dp))
                     }
                 }
@@ -155,8 +165,11 @@ private fun Message(text: String) {
 /** 이보다 좁으면 머리줄에서 제목·갱신 시각·설정을 빼고 필터와 새로고침만 남긴다(2칸 폭). */
 private val NARROW = 220.dp
 
+/** 목록 오른쪽 여백. 스크롤 막대가 이 안에 그려진다. */
+private val SCROLLBAR_GAP = 10.dp
+
 @Composable
-private fun Header(data: DealsData?, category: String?, canUndo: Boolean, now: Instant) {
+private fun Header(data: DealsData?, category: String?, canUndo: Boolean, newComments: Int, now: Instant) {
     val narrow = LocalSize.current.width < NARROW
     Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         if (!narrow) {
@@ -180,6 +193,18 @@ private fun Header(data: DealsData?, category: String?, canUndo: Boolean, now: I
                 true
             }
             Text(formatUpdated(data.generatedAt, ZoneId.systemDefault()), style = style(if (stale) FIRE else SUBTLE, 10))
+        }
+        // 저장한 글에 새 댓글이 있을 때만 보인다. 누르면 앱의 "저장한 글" 탭이 열린다.
+        if (newComments > 0) {
+            Spacer(GlanceModifier.width(6.dp))
+            Box(
+                modifier = GlanceModifier.background(ROW_FIRE)
+                    .cornerRadius(6.dp)
+                    .padding(horizontal = 6.dp, vertical = 1.dp)
+                    .clickable(actionStartActivity<MainActivity>()),
+            ) {
+                Text("💬+$newComments", style = style(FIRE, 11, bold = true))
+            }
         }
         // ✕로 숨긴 글이 있을 때만 보인다. 누를 때마다 가장 최근에 숨긴 글부터 하나씩 되살린다.
         if (canUndo) {
@@ -214,11 +239,11 @@ private fun Header(data: DealsData?, category: String?, canUndo: Boolean, now: I
 }
 
 /**
- * 한 줄을 누르면 원문(브라우저·유튜브 앱)을 열고, 오른쪽 ✕를 누르면 그 글을 숨긴다.
+ * 한 줄을 누르면 원문(브라우저·유튜브 앱)을 연다. 오른쪽 ☆는 댓글을 지켜볼 글로 저장하고, ✕는 그 글을 숨긴다.
  * 홈 화면 위젯은 길게 누르기를 홈 화면 앱이 가져가서(이동·크기 조절) ✕ 버튼으로 숨긴다.
  */
 @Composable
-private fun DealRow(deal: VisibleDeal, now: Instant) {
+private fun DealRow(deal: VisibleDeal, saved: Boolean, now: Instant) {
     val open = Intent(Intent.ACTION_VIEW, Uri.parse(deal.item.url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     Row(
         modifier = GlanceModifier.fillMaxWidth()
@@ -233,12 +258,21 @@ private fun DealRow(deal: VisibleDeal, now: Instant) {
         ) {
             DealText(deal, now)
         }
-        Box(
-            modifier = GlanceModifier.padding(horizontal = 10.dp, vertical = 10.dp)
-                .clickable(actionRunCallback<HideAction>(actionParametersOf(DEAL_ID to deal.item.id))),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text("✕", style = style(SUBTLE, 13))
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(
+                modifier = GlanceModifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    .clickable(actionRunCallback<ToggleSaveAction>(actionParametersOf(DEAL_ID to deal.item.id))),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(if (saved) "★" else "☆", style = style(if (saved) FIRE else SUBTLE, 15))
+            }
+            Box(
+                modifier = GlanceModifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    .clickable(actionRunCallback<HideAction>(actionParametersOf(DEAL_ID to deal.item.id))),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("✕", style = style(SUBTLE, 14))
+            }
         }
     }
 }
@@ -274,6 +308,28 @@ class HideAction : ActionCallback {
         val id = parameters[DEAL_ID] ?: return
         val current = Repository.forContext(context).cached()?.items?.map { it.id }?.toSet().orEmpty()
         HiddenStore.forContext(context).hide(id, current)
+        redrawAllWidgets(context)
+    }
+}
+
+/** ☆ 버튼: 댓글을 지켜볼 글로 저장하고, 이미 저장한 글이면 저장을 취소한다. */
+class ToggleSaveAction : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        val id = parameters[DEAL_ID] ?: return
+        val item = Repository.forContext(context).cached()?.items?.firstOrNull { it.id == id } ?: return
+        SavedStore.forContext(context).update { list ->
+            if (list.any { it.url == item.url }) {
+                list.filterNot { it.url == item.url }
+            } else {
+                addSaved(
+                    list,
+                    SavedLink(
+                        url = item.url, title = item.title, sourceLabel = item.sourceLabel,
+                        savedAt = Instant.now().toString(), comments = item.comments, seenComments = item.comments,
+                    ),
+                )
+            }
+        }
         redrawAllWidgets(context)
     }
 }
