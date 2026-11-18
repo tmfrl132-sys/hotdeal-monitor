@@ -3,7 +3,7 @@ from pathlib import Path
 
 from monitor.config import load_settings
 from monitor.models import Post
-from monitor.publish import active_sources, build_items, merge, render, rules_of
+from monitor.publish import active_sources, apply_noise, build_items, merge, render, rules_of
 
 ROOT = Path(__file__).resolve().parents[1]
 S = load_settings(ROOT / "settings.yaml")
@@ -114,3 +114,18 @@ def test_render_document():
     assert doc["generated_at"] == "2026-11-17T03:00:00Z"
     assert doc["sources"][0]["error"] == "HTTP 403"
     assert doc["items"] == []
+
+
+def test_apply_noise_marks_scrap_but_not_fire_or_youtube():
+    items = [
+        {"title": "[토스]정답", "source": "ppomppu:coupon", "fire": False},
+        {"title": "룰렛 쌀먹", "source": "ppomppu:phone", "fire": True},
+        {"title": "퀴즈로 보는 카드 혜택", "source": "youtube:jgb", "fire": False},
+        {"title": "[쿠팡] 니트", "source": "ppomppu:ppomppu", "fire": False},
+    ]
+    assert [i["noise"] for i in apply_noise(items, S)] == [True, False, False, False]
+
+
+def test_rules_section_has_noise_settings():
+    r = rules_of(S, skip=set())
+    assert "퀴즈" in r["noise_keywords"] and r["noise_max_won"] == 100

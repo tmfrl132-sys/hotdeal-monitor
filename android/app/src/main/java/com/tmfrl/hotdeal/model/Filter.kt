@@ -31,6 +31,8 @@ fun visibleDeals(data: DealsData, keywords: UserKeywords, hidden: Set<String> = 
         if (keywords.exclude.any { matches(item.title, it, item.category) }) return@mapNotNull null
         val hit = keywords.instant.firstOrNull { matches(item.title, it, item.category) }
         if (item.pick == null && hit == null) return@mapNotNull null
+        // 폐지줍기는 숨긴다. 단, 내 즉시 키워드에 맞으면 직접 찾는 글이므로 보여준다.
+        if (item.noise && !keywords.showNoise && hit == null) return@mapNotNull null
         VisibleDeal(
             item = item,
             fire = item.fire || (hit != null && normalize(hit.word) == FIRE_WORD),

@@ -13,7 +13,11 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.tmfrl.hotdeal.data.Repository
+import com.tmfrl.hotdeal.data.SavedStore
+import com.tmfrl.hotdeal.data.checkSavedLinks
+import com.tmfrl.hotdeal.data.httpGetPage
 import com.tmfrl.hotdeal.widget.redrawAllWidgets
+import java.time.Instant
 import java.util.concurrent.TimeUnit
 
 /** 15분마다(안드로이드가 허용하는 최소 주기) deals.json을 받아 위젯을 다시 그린다. */
@@ -21,6 +25,9 @@ class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorke
 
     override suspend fun doWork(): Result {
         Repository.forContext(applicationContext).refresh() // 실패하면 캐시가 그대로 남는다
+        redrawAllWidgets(applicationContext)
+        // 글 목록을 먼저 그린 뒤 저장한 글의 댓글 수를 확인한다
+        checkSavedLinks(SavedStore.forContext(applicationContext), Instant.now().toString(), ::httpGetPage)
         redrawAllWidgets(applicationContext)
         return Result.success()
     }

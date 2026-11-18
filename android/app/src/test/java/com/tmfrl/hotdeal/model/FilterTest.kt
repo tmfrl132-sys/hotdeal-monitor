@@ -74,6 +74,26 @@ class FilterTest {
         assertEquals("late", v.first().item.id)
     }
 
+    private val scrap = data.copy(
+        items = listOf(data.items[0].copy(id = "scrap", title = "[토스]정답", noise = true, fire = false)),
+    )
+
+    @Test
+    fun digitalScrapHiddenByDefault() {
+        assertEquals(emptyList<String>(), ids(visibleDeals(scrap, UserKeywords())))
+    }
+
+    @Test
+    fun digitalScrapShownWhenTurnedOn() {
+        assertEquals(listOf("scrap"), ids(visibleDeals(scrap, UserKeywords(showNoise = true))))
+    }
+
+    @Test
+    fun myInstantKeywordBeatsScrapFilter() {
+        val kw = UserKeywords(instant = listOf(Keyword("토스")))
+        assertEquals(listOf("scrap"), ids(visibleDeals(scrap, kw)))
+    }
+
     @Test
     fun hiddenIdsAreRemoved() {
         val v = visibleDeals(data, UserKeywords(), hidden = setOf("ppomppu:coupon:4"))

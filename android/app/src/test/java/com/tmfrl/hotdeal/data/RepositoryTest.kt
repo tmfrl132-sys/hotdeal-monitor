@@ -1,6 +1,7 @@
 package com.tmfrl.hotdeal.data
 
 import com.tmfrl.hotdeal.model.SAMPLE
+import com.tmfrl.hotdeal.model.SavedLink
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -67,6 +68,35 @@ class RepositoryTest {
         store.hide("a", all)
         assertEquals("a", store.undo())
         assertEquals(setOf("b"), store.read())
+    }
+
+    @Test
+    fun checkSavedLinksUpdatesCountsAndSurvivesFailure() = runTest {
+        val store = SavedStore(tmp.root.resolve("saved.json"))
+        val ok = "https://www.ppomppu.co.kr/zboard/view.php?id=coupon&no=1"
+        val down = "https://www.ppomppu.co.kr/zboard/view.php?id=coupon&no=2"
+        val other = "https://www.youtube.com/watch?v=abc"
+        store.update { listOf(SavedLink(ok, "A"), SavedLink(down, "B"), SavedLink(other, "C")) }
+        val asked = mutableListOf<String>()
+        checkSavedLinks(store, "now") { page ->
+            asked += page
+            if ("no=2" in page) throw IOException("offline")
+            """<i class="cmnb">6</i>"""
+        }
+        val byUrl = store.read().associateBy { it.url }
+        assertEquals(6, byUrl.getValue(ok).comments)
+        assertNull(byUrl.getValue(down).comments)
+        // 댓글 수를 읽을 수 없고 제목도 이미 있는 링크는 요청하지 않는다
+        assertEquals(2, asked.size)
+    }
+
+    @Test
+    fun pastedLinkGetsTitleFromPage() = runTest {
+        val store = SavedStore(tmp.root.resolve("saved.json"))
+        val url = "https://example.com/a"
+        store.update { listOf(SavedLink(url, url)) }
+        checkSavedLinks(store, "now") { "<title>글 제목</title>" }
+        assertEquals("글 제목", store.read().single().title)
     }
 
     @Test

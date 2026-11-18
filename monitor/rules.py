@@ -13,6 +13,7 @@ FIRE_KEYWORD = "쌀먹"
 LATE_MULTIPLIER = 2  # window_min이 지난 글은 기준의 2배가 필요하다
 
 _DISCOUNT = re.compile(r"(\d+(?:\.\d+)?)\s*%")
+_SMALL_WON = re.compile(r"(?<![\d,.])(\d{1,3})\s*원")
 
 Keywords = list[tuple[str, "str | None"]]
 
@@ -32,6 +33,14 @@ def _find(title: str, words) -> str | None:
 def parse_discount(title: str) -> float | None:
     values = [float(m) for m in _DISCOUNT.findall(title)]
     return max(values) if values else None
+
+
+def is_noise(title: str, s: Settings) -> bool:
+    """디지털 폐지줍기: 퀴즈 정답, 룰렛·뽑기, 몇십 원 적립 글."""
+    if _find(title, s.noise_keywords):
+        return True
+    # "12원"은 잡고 "3,900원"의 900원과 "0원 요금제"는 잡지 않는다
+    return any(0 < int(m) <= s.noise_max_won for m in _SMALL_WON.findall(title))
 
 
 def is_discontinue(title: str, s: Settings) -> bool:

@@ -19,7 +19,7 @@ import httpx
 from monitor.config import Settings, load_settings
 from monitor.fetcher import Fetcher
 from monitor.models import Post, Source
-from monitor.rules import LATE_MULTIPLIER, judge, judge_youtube
+from monitor.rules import LATE_MULTIPLIER, is_noise, judge, judge_youtube
 from monitor.sources import parse
 
 log = logging.getLogger("monitor.publish")
@@ -93,6 +93,14 @@ def merge(prev: list, current: list[dict], now: datetime) -> list[dict]:
     return kept
 
 
+def apply_noise(items: list[dict], s: Settings) -> list[dict]:
+    """폐지줍기 표시를 모든 글에 다시 매긴다. 이전 실행에서 넘어온 글도 지금 기준을 따른다."""
+    for item in items:
+        item["noise"] = (not item.get("fire") and not item["source"].startswith("youtube:")
+                         and is_noise(item["title"], s))
+    return items
+
+
 def rules_of(s: Settings, skip: set[str]) -> dict:
     """앱의 '수집 기준' 화면에 보일 실제 기준 값. settings.yaml에서 그대로 옮긴다."""
     return {
@@ -102,6 +110,8 @@ def rules_of(s: Settings, skip: set[str]) -> dict:
         "giftcard_min_discount": s.giftcard_min_discount,
         "discontinue_keywords": s.discontinue_keywords,
         "card_keywords": s.card_keywords,
+        "noise_keywords": list(s.noise_keywords),
+        "noise_max_won": s.noise_max_won,
         "reaction": {k: {"window_min": r.window_min, "recommends": r.recommends, "comments": r.comments}
                      for k, r in s.reaction.items()},
         "late_multiplier": LATE_MULTIPLIER,
@@ -159,7 +169,7 @@ async def run(out: Path, prev_url: str | None, skip: set[str] = frozenset()) -> 
         prev = await load_prev(client, prev_url)
         posts_by_source, statuses = await collect(s, client, skip)
     now = datetime.now(timezone.utc)
-    items = merge(prev, build_items(posts_by_source, s, now), now)
+    items = apply_noise(merge(prev, build_items(posts_by_source, s, now), now), s)
     doc = render(items, statuses, now, rules_of(s, set(skip)))
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(doc, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")

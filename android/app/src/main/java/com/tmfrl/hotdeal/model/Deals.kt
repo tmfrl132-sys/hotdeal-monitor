@@ -23,6 +23,8 @@ data class Rules(
     @SerialName("giftcard_min_discount") val giftcardMinDiscount: Double = 0.0,
     @SerialName("discontinue_keywords") val discontinueKeywords: List<String> = emptyList(),
     @SerialName("card_keywords") val cardKeywords: List<String> = emptyList(),
+    @SerialName("noise_keywords") val noiseKeywords: List<String> = emptyList(),
+    @SerialName("noise_max_won") val noiseMaxWon: Int = 0,
     val reaction: Map<String, ReactionRule> = emptyMap(),
     @SerialName("late_multiplier") val lateMultiplier: Int = 2,
     @SerialName("watch_hours") val watchHours: Int = 6,
@@ -69,6 +71,8 @@ data class DealItem(
     val label: String = "",
     /** 수집기가 처음 고른 시각. 반응이 늦게 붙은 글도 이 시각 기준으로 맨 위에 온다. */
     @SerialName("picked_at") val pickedAt: String? = null,
+    /** 디지털 폐지줍기(퀴즈 정답, 몇십 원 적립, 룰렛). 설정에서 켜야 보인다. */
+    val noise: Boolean = false,
 )
 
 private val json = Json { ignoreUnknownKeys = true }

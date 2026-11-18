@@ -41,6 +41,8 @@ class Settings:
     retention_days: int
     db_path: Path
     log_dir: Path
+    noise_keywords: tuple[str, ...] = ()
+    noise_max_won: int = 0
 
 
 @dataclass(frozen=True)
@@ -96,6 +98,8 @@ def load_settings(path: Path = ROOT / "settings.yaml") -> Settings:
         retention_days=int(raw["retention_days"]),
         db_path=_resolve(raw["db_path"], base),
         log_dir=_resolve(raw["log_dir"], base),
+        noise_keywords=tuple(raw.get("noise_keywords") or ()),
+        noise_max_won=int(raw.get("noise_max_won", 0)),
     )
 
 

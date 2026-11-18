@@ -19,6 +19,8 @@ data class Keyword(val word: String, val category: String? = null)
 data class UserKeywords(
     val instant: List<Keyword> = emptyList(),
     val exclude: List<Keyword> = emptyList(),
+    /** 디지털 폐지줍기 글도 위젯에 보일지. 기본은 숨김. */
+    val showNoise: Boolean = false,
 ) {
     fun withInstant(word: String, category: String?) = copy(instant = add(instant, word, category))
     fun withExclude(word: String, category: String?) = copy(exclude = add(exclude, word, category))

@@ -2,12 +2,21 @@ package com.tmfrl.hotdeal.data
 
 import android.content.Context
 import com.tmfrl.hotdeal.model.DealsData
+import com.tmfrl.hotdeal.model.SavedLink
 import com.tmfrl.hotdeal.model.UserKeywords
+import com.tmfrl.hotdeal.model.applyCheck
+import com.tmfrl.hotdeal.model.commentPageUrl
+import com.tmfrl.hotdeal.model.decodeHtml
 import com.tmfrl.hotdeal.model.encodeDeals
 import com.tmfrl.hotdeal.model.encodeKeywords
+import com.tmfrl.hotdeal.model.encodeSaved
+import com.tmfrl.hotdeal.model.parseCommentCount
 import com.tmfrl.hotdeal.model.parseDeals
+import com.tmfrl.hotdeal.model.parseHtmlTitle
 import com.tmfrl.hotdeal.model.parseKeywords
+import com.tmfrl.hotdeal.model.parseSaved
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
@@ -23,6 +32,9 @@ import java.nio.file.StandardCopyOption
 
 const val DEALS_URL = "https://tmfrl132-sys.github.io/hotdeal-monitor/deals.json"
 private const val TIMEOUT_MS = 15_000
+private const val CHECK_GAP_MS = 1_000L // 저장한 글을 확인할 때 사이트에 부담을 주지 않는 간격
+private const val PAGE_USER_AGENT =
+    "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
 
 /** 위젯이 쓰다 만 파일을 읽지 않게 임시 파일에 다 쓴 뒤 한 번에 바꿔치기한다. */
 internal fun writeAtomic(target: File, text: String) {
@@ -47,6 +59,68 @@ internal fun httpGet(url: String): String {
         return conn.inputStream.bufferedReader().use { it.readText() }
     } finally {
         conn.disconnect()
+    }
+}
+
+/** 글 페이지 본문. 뽐뿌 모바일 페이지는 휴대기기 이름과 Referer가 없으면 403을 준다. */
+internal fun httpGetPage(url: String): String {
+    val conn = URL(url).openConnection() as HttpURLConnection
+    try {
+        conn.connectTimeout = TIMEOUT_MS
+        conn.readTimeout = TIMEOUT_MS
+        conn.setRequestProperty("User-Agent", PAGE_USER_AGENT)
+        conn.setRequestProperty("Accept-Language", "ko-KR,ko;q=0.9")
+        conn.setRequestProperty("Referer", "https://m.ppomppu.co.kr/")
+        if (conn.responseCode != HttpURLConnection.HTTP_OK) throw IOException("HTTP ${conn.responseCode}")
+        return decodeHtml(conn.inputStream.use { it.readBytes() })
+    } finally {
+        conn.disconnect()
+    }
+}
+
+/**
+ * 저장한 글의 댓글 수를 읽는다. 뽐뿌·클리앙만 읽을 수 있고, 붙여 넣은 링크는 제목도 채운다.
+ * 한 글이 실패해도 나머지는 계속 확인하고, 실패한 글은 이전 값을 유지한다.
+ */
+suspend fun checkSavedLinks(store: SavedStore, now: String, fetch: (String) -> String) = withContext(Dispatchers.IO) {
+    store.read().forEach { link ->
+        val page = commentPageUrl(link.url)
+        val target = page ?: link.url.takeIf { link.title == link.url } ?: return@forEach
+        val html = try {
+            fetch(target)
+        } catch (e: IOException) {
+            return@forEach
+        } catch (e: IllegalArgumentException) {
+            return@forEach
+        }
+        val count = if (page != null) parseCommentCount(link.url, html) else null
+        val title = parseHtmlTitle(html)
+        store.update { list -> list.map { if (it.url == link.url) applyCheck(it, count, title, now) else it } }
+        delay(CHECK_GAP_MS)
+    }
+}
+
+/** 댓글을 지켜보려고 저장한 글(saved.json). 기기에만 저장한다. */
+class SavedStore(private val file: File) {
+
+    fun read(): List<SavedLink> = try {
+        if (file.exists()) parseSaved(file.readText()) else emptyList()
+    } catch (e: IOException) {
+        emptyList()
+    }
+
+    suspend fun update(transform: (List<SavedLink>) -> List<SavedLink>): List<SavedLink> = withContext(Dispatchers.IO) {
+        lock.withLock {
+            val after = transform(read())
+            writeAtomic(file, encodeSaved(after))
+            after
+        }
+    }
+
+    companion object {
+        private val lock = Mutex()
+
+        fun forContext(context: Context) = SavedStore(File(context.filesDir, "saved.json"))
     }
 }
 

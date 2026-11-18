@@ -5,7 +5,7 @@ import pytest
 
 from monitor.config import load_settings
 from monitor.models import Post, Verdict
-from monitor.rules import categorize, judge, judge_youtube, parse_discount
+from monitor.rules import categorize, is_noise, judge, judge_youtube, parse_discount
 
 ROOT = Path(__file__).resolve().parents[1]
 NOW = datetime(2026, 11, 14, 3, 0, tzinfo=timezone.utc)
@@ -152,3 +152,33 @@ def test_youtube_discontinue_ignores_exclude():
 def test_youtube_other_video_excluded():
     p = mk("라면 할인 종료", source="youtube:jgb")
     assert judge_youtube(p, S, EXCLUDE).action == "drop"
+
+
+@pytest.mark.parametrize("title", [
+    "[네이버페이] 매일 브랜드뽑기 10원(14시 오픈)",
+    "[네이버페이] 1원 적립 더퀴르",
+    "[네이버페이] 제주항공, 롯데카드 등 받으세요 (& 라이브, 운세, 보험, 랜덤, 마이",
+    "[카카오페이] 10시퀴즈 정답",
+    "[토스]정답",
+    "[KB Pay] 오늘의 퀴즈 11/18일자 정답",
+    "[슈퍼SOL] 오늘도 돌려요! 100% 당첨 룰렛!",
+    "신한슈퍼SOL 밸런스게임",
+    "하나카드 랜덤박스 열어보세요",
+    "[토스] 261118 토스 두근두근 1등 찍기 팀플전",
+    "[하나Pay] 트래블 미션 (매일 5P) + 랜덤박스",
+    "11/18일자 네이버페이 65원 + 랜덤포인트 모음",
+])
+def test_digital_scrap_titles_are_noise(title):
+    assert is_noise(title, S)
+
+
+@pytest.mark.parametrize("title", [
+    "[G마켓] 신세계상품권 10만원권 6% 할인",
+    "[쿠팡] 삼다수 2L 24병 (11,900원/무료)",
+    "[카카오] 중고도서 100종 (3,900원부터)",
+    "카카오뱅크 스텔스통장개설하고 700원 ~ 3만원 받기",
+    "에스오일 5천원!",
+    "[헬로모바일] 7개월 0원 요금제 쌀먹 가능",
+])
+def test_real_deals_are_not_noise(title):
+    assert not is_noise(title, S)
