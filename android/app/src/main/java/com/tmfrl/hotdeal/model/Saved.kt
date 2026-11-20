@@ -16,6 +16,8 @@ data class SavedLink(
     /** 사용자가 마지막으로 확인한 댓글 수. 이보다 늘어난 만큼이 새 댓글이다. */
     val seenComments: Int? = null,
     val checkedAt: String? = null,
+    /** 분류 id(SavedCategory.id). 옛 저장 파일에는 없어서 null이고, 읽을 때 자동으로 배정한다. */
+    val category: String? = null,
 )
 
 val SavedLink.newComments: Int

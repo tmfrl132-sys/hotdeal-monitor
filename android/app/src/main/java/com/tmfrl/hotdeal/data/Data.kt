@@ -1,10 +1,16 @@
 package com.tmfrl.hotdeal.data
 
 import android.content.Context
+import com.tmfrl.hotdeal.model.DEFAULT_CATEGORIES
 import com.tmfrl.hotdeal.model.DealsData
+import com.tmfrl.hotdeal.model.SavedCategory
 import com.tmfrl.hotdeal.model.SavedLink
 import com.tmfrl.hotdeal.model.UserKeywords
 import com.tmfrl.hotdeal.model.applyCheck
+import com.tmfrl.hotdeal.model.assignMissingCategories
+import com.tmfrl.hotdeal.model.encodeCategories
+import com.tmfrl.hotdeal.model.parseCategories
+import com.tmfrl.hotdeal.model.withEtc
 import com.tmfrl.hotdeal.model.commentPageUrl
 import com.tmfrl.hotdeal.model.decodeHtml
 import com.tmfrl.hotdeal.model.encodeDeals
@@ -70,7 +76,7 @@ internal fun httpGetPage(url: String): String {
         conn.readTimeout = TIMEOUT_MS
         conn.setRequestProperty("User-Agent", PAGE_USER_AGENT)
         conn.setRequestProperty("Accept-Language", "ko-KR,ko;q=0.9")
-        conn.setRequestProperty("Referer", "https://m.ppomppu.co.kr/")
+        conn.setRequestProperty("Referer", if ("clien.net" in url) "https://m.clien.net/" else "https://m.ppomppu.co.kr/")
         if (conn.responseCode != HttpURLConnection.HTTP_OK) throw IOException("HTTP ${conn.responseCode}")
         return decodeHtml(conn.inputStream.use { it.readBytes() })
     } finally {
@@ -103,8 +109,9 @@ suspend fun checkSavedLinks(store: SavedStore, now: String, fetch: (String) -> S
 /** 댓글을 지켜보려고 저장한 글(saved.json). 기기에만 저장한다. */
 class SavedStore(private val file: File) {
 
+    /** 분류가 없는 옛 글은 읽을 때 자동으로 분류를 매긴다. 다음에 저장할 때 파일에도 들어간다. */
     fun read(): List<SavedLink> = try {
-        if (file.exists()) parseSaved(file.readText()) else emptyList()
+        if (file.exists()) assignMissingCategories(parseSaved(file.readText())) else emptyList()
     } catch (e: IOException) {
         emptyList()
     }
@@ -121,6 +128,31 @@ class SavedStore(private val file: File) {
         private val lock = Mutex()
 
         fun forContext(context: Context) = SavedStore(File(context.filesDir, "saved.json"))
+    }
+}
+
+/** 저장한 글의 분류 목록(categories.json). 파일이 없으면 기본 분류. 기기에만 저장한다. */
+class CategoryStore(private val file: File) {
+
+    fun read(): List<SavedCategory> = try {
+        if (file.exists()) parseCategories(file.readText()) else DEFAULT_CATEGORIES
+    } catch (e: IOException) {
+        DEFAULT_CATEGORIES
+    }
+
+    suspend fun update(transform: (List<SavedCategory>) -> List<SavedCategory>): List<SavedCategory> =
+        withContext(Dispatchers.IO) {
+            lock.withLock {
+                val after = withEtc(transform(read()))
+                writeAtomic(file, encodeCategories(after))
+                after
+            }
+        }
+
+    companion object {
+        private val lock = Mutex()
+
+        fun forContext(context: Context) = CategoryStore(File(context.filesDir, "categories.json"))
     }
 }
 

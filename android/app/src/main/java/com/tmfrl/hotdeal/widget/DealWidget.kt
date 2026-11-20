@@ -54,6 +54,7 @@ import com.tmfrl.hotdeal.model.DealsData
 import com.tmfrl.hotdeal.model.SavedLink
 import com.tmfrl.hotdeal.model.VisibleDeal
 import com.tmfrl.hotdeal.model.addSaved
+import com.tmfrl.hotdeal.model.autoCategory
 import com.tmfrl.hotdeal.model.formatUpdated
 import com.tmfrl.hotdeal.model.inCategory
 import com.tmfrl.hotdeal.model.metaLine
@@ -326,6 +327,7 @@ class ToggleSaveAction : ActionCallback {
                     SavedLink(
                         url = item.url, title = item.title, sourceLabel = item.sourceLabel,
                         savedAt = Instant.now().toString(), comments = item.comments, seenComments = item.comments,
+                        category = autoCategory(item.title, item.sourceLabel, item.category, item.label),
                     ),
                 )
             }

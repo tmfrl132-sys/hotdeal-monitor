@@ -61,6 +61,8 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.9.1")
     implementation("androidx.datastore:datastore-preferences-core:1.1.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    // 저장한 글의 원문 페이지(본문·댓글)를 마크다운으로 바꿀 때 HTML을 읽는다
+    implementation("org.jsoup:jsoup:1.18.1")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
 }
