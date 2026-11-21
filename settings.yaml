@@ -14,6 +14,7 @@ sources:
   - {name: "ppomppu:stock",   kind: ppomppu_rss, url: "https://www.ppomppu.co.kr/rss.php?id=stock",   interval_sec: 600, categories: [재테크], label: "뽐뿌 증권포럼", enabled: false}  # 시황 잡담이 대부분이라 끔
   - {name: "ppomppu:pmarket", kind: ppomppu_rss, url: "https://www.ppomppu.co.kr/rss.php?id=pmarket", interval_sec: 600, categories: [핫딜], label: "뽐뿌 쇼핑뽐뿌"}
   - {name: "clien:jirum",     kind: clien,       url: "https://www.clien.net/service/board/jirum",    interval_sec: 600, categories: [핫딜, 상품권], label: "클리앙 알뜰구매"}
+  - {name: "ssalmuk:events",  kind: ssalmuk,     url: "https://ssalmuk.life/",                       interval_sec: 600, categories: [알뜰폰],      label: "쌀먹 라이프"}  # 사이트가 쌀먹으로 판정한 새 이벤트는 즉시알림
   - {name: "fmkorea:hotdeal", kind: fmkorea,     url: "https://www.fmkorea.com/hotdeal",              interval_sec: 600, categories: [핫딜, 상품권], label: "FM코리아 핫딜"}
   # 30분 주기
   - {name: "youtube:jgb",     kind: youtube,     url: "https://www.youtube.com/feeds/videos.xml?channel_id=UC1KHW0JH7zToxC2H69axgzw", interval_sec: 1800, categories: [신용카드, 핫딜], label: "정가거부"}

@@ -8,7 +8,7 @@ from datetime import datetime
 @dataclass(frozen=True)
 class Source:
     name: str                    # "ppomppu:coupon" 처럼 소스 안에서 유일
-    kind: str                    # "ppomppu_rss" | "clien" | "fmkorea" | "youtube"
+    kind: str                    # "ppomppu_rss" | "clien" | "fmkorea" | "ssalmuk" | "youtube"
     url: str
     interval_sec: int
     categories: tuple[str, ...]  # 첫 번째가 기본 카테고리

@@ -19,7 +19,7 @@ import httpx
 from monitor.config import Settings, load_settings
 from monitor.fetcher import Fetcher
 from monitor.models import Post, Source
-from monitor.rules import LATE_MULTIPLIER, is_noise, judge, judge_youtube
+from monitor.rules import LATE_MULTIPLIER, is_noise, judge, judge_ssalmuk, judge_youtube
 from monitor.sources import parse
 
 log = logging.getLogger("monitor.publish")
@@ -43,8 +43,12 @@ def build_items(posts_by_source: dict[Source, list[Post]], s: Settings, now: dat
     items = []
     for source, posts in posts_by_source.items():
         for p in posts:
-            v = judge_youtube(p, s, exclude) if source.kind == "youtube" \
-                else judge(p, source, s, instant, exclude, now)
+            if source.kind == "youtube":
+                v = judge_youtube(p, s, exclude)
+            elif source.kind == "ssalmuk":
+                v = judge_ssalmuk(p, exclude, now)
+            else:
+                v = judge(p, source, s, instant, exclude, now)
             items.append({
                 "id": f"{p.source}:{p.post_id}",
                 "source": p.source,
@@ -96,7 +100,8 @@ def merge(prev: list, current: list[dict], now: datetime) -> list[dict]:
 def apply_noise(items: list[dict], s: Settings) -> list[dict]:
     """폐지줍기 표시를 모든 글에 다시 매긴다. 이전 실행에서 넘어온 글도 지금 기준을 따른다."""
     for item in items:
-        item["noise"] = (not item.get("fire") and not item["source"].startswith("youtube:")
+        item["noise"] = (not item.get("fire")
+                         and not item["source"].startswith(("youtube:", "ssalmuk:"))
                          and is_noise(item["title"], s))
     return items
 
