@@ -5,7 +5,7 @@ import pytest
 
 from monitor.config import load_settings
 from monitor.models import Post, Verdict
-from monitor.rules import categorize, is_noise, judge, judge_youtube, parse_discount
+from monitor.rules import categorize, is_noise, judge, judge_ssalmuk, judge_youtube, parse_discount
 
 ROOT = Path(__file__).resolve().parents[1]
 NOW = datetime(2026, 11, 14, 3, 0, tzinfo=timezone.utc)
@@ -182,3 +182,21 @@ def test_digital_scrap_titles_are_noise(title):
 ])
 def test_real_deals_are_not_noise(title):
     assert not is_noise(title, S)
+
+
+def ss(title="[헬로모바일] 매월 5만원 (월 +21,704원·8개월) [쌀먹]", hours_ago=10, ended=False):
+    return Post("ssalmuk:events", "hellomobile/586/2026-11-09", title, "https://x",
+                NOW - timedelta(hours=hours_ago), None, None, ended)
+
+
+def test_ssalmuk_fresh_ssalmeok_is_instant_with_fire():
+    assert judge_ssalmuk(ss(), EXCLUDE, NOW) == Verdict("instant", "알뜰폰", fire=True)
+    # 시작일이 미래인 이벤트(미리 올라온 것)도 바로 알린다
+    assert judge_ssalmuk(ss(hours_ago=-20), EXCLUDE, NOW).action == "instant"
+
+
+def test_ssalmuk_old_ended_excluded_or_not_ssalmeok():
+    assert judge_ssalmuk(ss(hours_ago=49), EXCLUDE, NOW).action == "drop"
+    assert judge_ssalmuk(ss(ended=True), EXCLUDE, NOW).action == "drop"
+    assert judge_ssalmuk(ss(title="[유모바일] 타임딜 마감 임박 [쌀먹]"), EXCLUDE, NOW).action == "drop"
+    assert judge_ssalmuk(ss(title="[유모바일] 타임딜"), EXCLUDE, NOW) == Verdict("wait", "알뜰폰")

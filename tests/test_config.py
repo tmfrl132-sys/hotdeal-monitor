@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_load_settings_reads_sources():
     s = load_settings(ROOT / "settings.yaml")
     by_name = {src.name: src for src in s.sources}
-    assert len(s.sources) == 10
+    assert len(s.sources) == 11
     assert by_name["ppomppu:coupon"].interval_sec == 120
     assert by_name["youtube:jgb"].interval_sec == 1800
     assert by_name["youtube:jgb"].categories[0] == "신용카드"

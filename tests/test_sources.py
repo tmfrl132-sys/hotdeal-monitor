@@ -93,7 +93,33 @@ def test_fmkorea_time_after_now_is_yesterday():
     assert p.posted_at == datetime(2026, 11, 13, 19, 55, tzinfo=KST)
 
 
-@pytest.mark.parametrize("kind", ["ppomppu_rss", "youtube", "clien", "fmkorea"])
+@pytest.mark.parametrize("kind", ["ppomppu_rss", "youtube", "clien", "fmkorea", "ssalmuk"])
 def test_empty_raises_parse_error(kind):
     with pytest.raises(ParseError):
         parse(src(kind, "x"), "<html><body>점검 중</body></html>", SAVED)
+
+
+# 쌀먹 라이프 샘플을 저장한 시각 (KST 2026-11-21)
+SSALMUK_SAVED = datetime(2026, 11, 21, 10, 0, tzinfo=KST)
+
+
+def test_ssalmuk_event_fields():
+    posts = parse(src("ssalmuk", "ssalmuk:events"), read("ssalmuk_home.html"), SSALMUK_SAVED)
+    p = posts[0]
+    assert len(posts) == 28
+    assert p.post_id == "ktmmobile/1764/2026-11-17"
+    assert p.title == "[KT M모바일] [블프] 1만원대 요금제 6개월 간 매월 4.5만원 혜택! (월 +20,155원·8개월) [쌀먹]"
+    assert p.url == "https://ssalmuk.life/events/ktmmobile/1764/2026-11-17"
+    assert p.posted_at == datetime(2026, 11, 17, tzinfo=KST)
+    assert p.recommends is None and p.comments is None
+    assert not p.ended
+
+
+def test_ssalmuk_expired_and_verdict():
+    posts = parse(src("ssalmuk", "ssalmuk:events"), read("ssalmuk_home.html"), SSALMUK_SAVED)
+    active = [p for p in posts if not p.ended]
+    assert len(active) == 4 and all(p.title.endswith("[쌀먹]") for p in active)
+    expired = next(p for p in posts if p.post_id == "hellomobile/9013/2026-11-19")
+    # 만료 표시는 통신사 이름에서 뺀다. 만료된 이벤트에는 사이트의 쌀먹 판정이 없다
+    assert expired.ended and expired.title.startswith("[헬로모바일] [역대급 타임딜]")
+    assert not expired.title.endswith("[쌀먹]")

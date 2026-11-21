@@ -11,6 +11,8 @@ CARD = "신용카드"
 DISCONTINUE_LABEL = "신용카드·단종"
 FIRE_KEYWORD = "쌀먹"
 LATE_MULTIPLIER = 2  # window_min이 지난 글은 기준의 2배가 필요하다
+SSALMUK_CATEGORY = "알뜰폰"
+SSALMUK_FRESH_HOURS = 48  # 쌀먹 라이프: 시작일(KST 0시)부터 이 시간 안의 이벤트만 즉시알림
 
 _DISCOUNT = re.compile(r"(\d+(?:\.\d+)?)\s*%")
 _SMALL_WON = re.compile(r"(?<![\d,.])(\d{1,3})\s*원")
@@ -106,3 +108,20 @@ def judge_youtube(post: Post, s: Settings, exclude: Keywords) -> Verdict:
     if _scoped_match(post.title, exclude, "핫딜"):
         return Verdict("drop", "핫딜")
     return Verdict("queue", "핫딜")
+
+
+def judge_ssalmuk(post: Post, exclude: Keywords, now: datetime) -> Verdict:
+    """쌀먹 라이프 이벤트. 글 시각·반응 수가 없어서 사이트의 쌀먹 판정과 시작일로 고른다.
+
+    시작일 기준 48시간은 deals.json의 고른 글 보관 시간과 같다. 그래야 보관 기간이 지나
+    목록에서 빠진 이벤트가 다음 실행에서 다시 골라지지 않는다.
+    """
+    from monitor.sources.ssalmuk import is_ssalmeok
+
+    if post.ended or _scoped_match(post.title, exclude, SSALMUK_CATEGORY):
+        return Verdict("drop", SSALMUK_CATEGORY)
+    if not is_ssalmeok(post.title):
+        return Verdict("wait", SSALMUK_CATEGORY)
+    if now - post.posted_at > timedelta(hours=SSALMUK_FRESH_HOURS):
+        return Verdict("drop", SSALMUK_CATEGORY)
+    return Verdict("instant", SSALMUK_CATEGORY, fire=True)

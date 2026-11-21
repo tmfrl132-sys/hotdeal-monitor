@@ -129,3 +129,14 @@ def test_apply_noise_marks_scrap_but_not_fire_or_youtube():
 def test_rules_section_has_noise_settings():
     r = rules_of(S, skip=set())
     assert "퀴즈" in r["noise_keywords"] and r["noise_max_won"] == 100
+
+
+def test_build_items_ssalmuk_pick_and_no_noise():
+    fresh = Post("ssalmuk:events", "umobile/1/2026-11-17", "[유모바일] 매월 4만원 받기 (월 +12,000원·8개월) [쌀먹]",
+                 "https://ssalmuk.life/events/umobile/1/2026-11-17", NOW - timedelta(hours=12), None, None)
+    plain = Post("ssalmuk:events", "umobile/2/2026-11-17", "[유모바일] 출석 이벤트",
+                 "https://ssalmuk.life/events/umobile/2/2026-11-17", NOW - timedelta(hours=12), None, None)
+    items = apply_noise(build_items({SRC["ssalmuk:events"]: [fresh, plain]}, S, NOW), S)
+    a, b = item_of(items, "umobile/1/2026-11-17"), item_of(items, "umobile/2/2026-11-17")
+    assert (a["pick"], a["fire"], a["category"], a["source_label"]) == ("instant", True, "알뜰폰", "쌀먹 라이프")
+    assert b["pick"] is None and b["noise"] is False

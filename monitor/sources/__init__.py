@@ -11,13 +11,14 @@ class ParseError(Exception):
 
 
 def parse(source: Source, text: str, now: datetime | None = None) -> list[Post]:
-    from monitor.sources import clien, fmkorea, ppomppu, youtube
+    from monitor.sources import clien, fmkorea, ppomppu, ssalmuk, youtube
 
     parsers = {
         "ppomppu_rss": ppomppu.parse,
         "youtube": youtube.parse,
         "clien": clien.parse,
         "fmkorea": fmkorea.parse,
+        "ssalmuk": ssalmuk.parse,
     }
     try:
         posts = parsers[source.kind](source.name, text, now or datetime.now(timezone.utc))

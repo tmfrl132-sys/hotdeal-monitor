@@ -6,7 +6,7 @@ from datetime import datetime
 from monitor.config import Settings
 from monitor.messages import format_instant
 from monitor.models import Post, Source, Verdict
-from monitor.rules import judge, judge_youtube
+from monitor.rules import judge, judge_ssalmuk, judge_youtube
 from monitor.store import Store
 
 
@@ -19,6 +19,8 @@ def _verdict(post: Post, source: Source, store: Store, s: Settings, now: datetim
     exclude = store.keywords("exclude")
     if source.kind == "youtube":
         return judge_youtube(post, s, exclude)
+    if source.kind == "ssalmuk":
+        return judge_ssalmuk(post, exclude, now)
     return judge(post, source, s, store.keywords("instant"), exclude, now)
 
 
