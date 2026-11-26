@@ -13,7 +13,7 @@
 GitHub Actions(collect.yml, 15분마다) → monitor.publish → deals.json → GitHub Pages
                                                                  ↓
 태블릿 앱(android/, Glance 3×4 위젯) ← 15분마다 받음, 키워드 필터는 기기에서
-APK: v* 태그 push → android.yml 서명 빌드 → Releases
+APK: v* 태그 push 또는 android.yml 수동 실행(release에 v0.5.0 입력) → 서명 빌드 → Releases
 ```
 
 - deals.json에는 최근 24시간 글(고른 글은 48시간)이 모두 들어갑니다. `pick`은 수집기 판정입니다(`instant`/`queue`/없음).
