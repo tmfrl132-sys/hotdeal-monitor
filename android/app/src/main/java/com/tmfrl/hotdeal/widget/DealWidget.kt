@@ -46,21 +46,25 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.tmfrl.hotdeal.MainActivity
+import com.tmfrl.hotdeal.data.CollectStatusStore
 import com.tmfrl.hotdeal.data.HiddenStore
 import com.tmfrl.hotdeal.data.KeywordStore
 import com.tmfrl.hotdeal.data.Repository
 import com.tmfrl.hotdeal.data.SavedStore
+import com.tmfrl.hotdeal.data.TokenStore
 import com.tmfrl.hotdeal.model.DealsData
 import com.tmfrl.hotdeal.model.SavedLink
 import com.tmfrl.hotdeal.model.VisibleDeal
 import com.tmfrl.hotdeal.model.addSaved
 import com.tmfrl.hotdeal.model.autoCategory
+import com.tmfrl.hotdeal.model.collectBadge
 import com.tmfrl.hotdeal.model.formatUpdated
 import com.tmfrl.hotdeal.model.inCategory
 import com.tmfrl.hotdeal.model.metaLine
 import com.tmfrl.hotdeal.model.newComments
 import com.tmfrl.hotdeal.model.nextCategory
 import com.tmfrl.hotdeal.model.visibleDeals
+import com.tmfrl.hotdeal.work.CollectWorker
 import com.tmfrl.hotdeal.work.RefreshWorker
 import java.time.Duration
 import java.time.Instant
@@ -115,18 +119,26 @@ class DealWidget : GlanceAppWidget() {
                 inCategory(visibleDeals(it, KeywordStore.forContext(context).read(), hidden), category)
             }
             val saved = SavedStore.forContext(context).read()
+            val now = Instant.now()
+            val collect = Collect(
+                hasToken = TokenStore.forContext(context).read().isNotEmpty(),
+                badge = collectBadge(CollectStatusStore.forContext(context).read(), data?.generatedAt, now),
+            )
             WidgetContent(
                 data, deals, category, hidden.isNotEmpty(),
-                saved.map { it.url }.toSet(), saved.sumOf { it.newComments }, Instant.now(),
+                saved.map { it.url }.toSet(), saved.sumOf { it.newComments }, collect, now,
             )
         }
     }
 }
 
+/** 수집 버튼 상태. badge가 있으면 머리줄에 갱신 시각 대신 보인다(요청 중…, 수집 중…, 수집 실패 401). */
+private data class Collect(val hasToken: Boolean, val badge: String?)
+
 @Composable
 private fun WidgetContent(
     data: DealsData?, deals: List<VisibleDeal>?, category: String?, canUndo: Boolean,
-    savedUrls: Set<String>, newComments: Int, now: Instant,
+    savedUrls: Set<String>, newComments: Int, collect: Collect, now: Instant,
 ) {
     Column(
         modifier = GlanceModifier.fillMaxSize()
@@ -134,7 +146,7 @@ private fun WidgetContent(
             .cornerRadius(20.dp)
             .padding(10.dp),
     ) {
-        Header(data, category, canUndo, newComments, now)
+        Header(data, category, canUndo, newComments, collect, now)
         Spacer(GlanceModifier.height(6.dp))
         when {
             data == null || deals == null -> Message("핫딜을 불러오는 중입니다. 눌러서 새로고침")
@@ -170,7 +182,9 @@ private val NARROW = 220.dp
 private val SCROLLBAR_GAP = 10.dp
 
 @Composable
-private fun Header(data: DealsData?, category: String?, canUndo: Boolean, newComments: Int, now: Instant) {
+private fun Header(
+    data: DealsData?, category: String?, canUndo: Boolean, newComments: Int, collect: Collect, now: Instant,
+) {
     val narrow = LocalSize.current.width < NARROW
     Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         if (!narrow) {
@@ -187,7 +201,10 @@ private fun Header(data: DealsData?, category: String?, canUndo: Boolean, newCom
             Text("${category ?: "전체"} ▾", style = style(TEXT, 11, bold = true))
         }
         Spacer(GlanceModifier.defaultWeight())
-        if (data != null && !narrow) {
+        if (collect.badge != null && !narrow) {
+            val failed = !collect.badge.endsWith("…")
+            Text(collect.badge, style = style(if (failed) FIRE else SUBTLE, 10))
+        } else if (data != null && !narrow) {
             val stale = try {
                 Duration.between(Instant.parse(data.generatedAt), now) > STALE
             } catch (e: DateTimeParseException) {
@@ -229,6 +246,18 @@ private fun Header(data: DealsData?, category: String?, canUndo: Boolean, newCom
             ) {
                 Text("설정", style = style(SUBTLE, 11))
             }
+        }
+        // 수집 버튼: GitHub에 바로 수집하라고 요청한다. 토큰이 없으면 앱 설정을 연다.
+        Spacer(GlanceModifier.width(6.dp))
+        Box(
+            modifier = GlanceModifier.background(ROW)
+                .cornerRadius(6.dp)
+                .padding(horizontal = 6.dp, vertical = 1.dp)
+                .clickable(
+                    if (collect.hasToken) actionRunCallback<CollectAction>() else actionStartActivity<MainActivity>(),
+                ),
+        ) {
+            Text("수집", style = style(TEXT, 11))
         }
         Box(
             modifier = GlanceModifier.padding(start = 8.dp, end = 2.dp)
@@ -363,6 +392,13 @@ class RefreshAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
         RefreshWorker.runOnce(context)
         RefreshWorker.schedule(context)
+    }
+}
+
+/** 수집 버튼: GitHub에 collect.yml 실행을 요청한다. 네트워크는 WorkManager에서 쓴다(RefreshAction과 같은 이유). */
+class CollectAction : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        CollectWorker.runOnce(context)
     }
 }
 

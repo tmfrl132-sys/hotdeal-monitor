@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,16 +38,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tmfrl.hotdeal.data.CollectStatusStore
 import com.tmfrl.hotdeal.data.HiddenStore
 import com.tmfrl.hotdeal.data.KeywordStore
+import com.tmfrl.hotdeal.data.TokenStore
 import com.tmfrl.hotdeal.model.DealsData
 import com.tmfrl.hotdeal.model.FILTERS
 import com.tmfrl.hotdeal.model.Keyword
 import com.tmfrl.hotdeal.model.UserKeywords
+import com.tmfrl.hotdeal.model.collectMessage
 import com.tmfrl.hotdeal.model.formatUpdated
 import com.tmfrl.hotdeal.widget.redrawAllWidgets
+import com.tmfrl.hotdeal.work.CollectWorker
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.ZoneId
 
@@ -179,6 +186,9 @@ fun SettingsTab(data: DealsData?, onAddWidget: () -> Unit) {
         if (keywords.exclude.isEmpty()) item { Empty() }
         items(keywords.exclude) { k -> KeywordRow(k) { change { it.without(k) } } }
 
+        item { Section("지금 수집") }
+        item { CollectSection() }
+
         item { Section("수집 상태") }
         if (data == null) {
             item { Text("아직 받은 데이터가 없습니다. 인터넷 연결을 확인하세요.", color = SUBTLE, fontSize = 13.sp) }
@@ -226,5 +236,84 @@ private fun KeywordRow(k: Keyword, onDelete: () -> Unit) {
         Text(k.word, fontSize = 15.sp, modifier = Modifier.weight(1f))
         Text(k.category ?: "전체", color = SUBTLE, fontSize = 12.sp)
         TextButton(onClick = onDelete) { Text("삭제") }
+    }
+}
+
+/** 화면이 보이는 동안 수집 요청 결과를 다시 읽는 간격 */
+private const val STATUS_POLL_MS = 2_000L
+
+/**
+ * 15분을 기다리지 않고 GitHub에 바로 수집하라고 요청한다.
+ * GitHub 토큰(hotdeal-monitor 저장소, Actions: Read and write)이 필요하고, 토큰은 이 기기에만 저장한다.
+ */
+@Composable
+private fun CollectSection() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val tokenStore = remember { TokenStore.forContext(context) }
+    val statusStore = remember { CollectStatusStore.forContext(context) }
+    var hasToken by remember { mutableStateOf(tokenStore.read().isNotEmpty()) }
+    var input by remember { mutableStateOf("") }
+    var status by remember { mutableStateOf(statusStore.read()) }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(STATUS_POLL_MS)
+            status = statusStore.read()
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            "15분 주기를 기다리지 않고 바로 수집합니다. 위젯의 \"수집\" 버튼과 같습니다. 반영까지 1~2분 걸립니다.",
+            color = SUBTLE, fontSize = 12.sp,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Button(enabled = hasToken, onClick = { CollectWorker.runOnce(context) }) { Text("지금 수집") }
+            Text(if (hasToken) "토큰 저장됨" else "토큰 없음", color = if (hasToken) SUBTLE else WARN, fontSize = 13.sp)
+        }
+        status?.let {
+            Text(
+                "마지막 요청 ${formatUpdated(it.requestedAt, ZoneId.systemDefault())} · ${collectMessage(it.code)}",
+                color = if (it.code == 204 || it.code == 0) SUBTLE else WARN, fontSize = 13.sp,
+            )
+        }
+        OutlinedTextField(
+            value = input,
+            onValueChange = { input = it },
+            label = { Text(if (hasToken) "새 GitHub 토큰으로 바꾸기" else "GitHub 토큰 (github_pat_...)") },
+            singleLine = true,
+            visualTransformation = PasswordVisualTransformation(),
+            modifier = Modifier.fillMaxWidth().widthIn(max = 600.dp),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                enabled = input.isNotBlank(),
+                onClick = {
+                    val t = input
+                    scope.launch {
+                        tokenStore.write(t)
+                        input = ""
+                        hasToken = true
+                        redrawAllWidgets(context)
+                    }
+                },
+            ) { Text("토큰 저장") }
+            TextButton(
+                enabled = hasToken,
+                onClick = {
+                    scope.launch {
+                        tokenStore.write("")
+                        hasToken = false
+                        redrawAllWidgets(context)
+                    }
+                },
+            ) { Text("토큰 지우기") }
+        }
+        Text(
+            "토큰 만드는 곳: GitHub 설정 → Developer settings → Fine-grained tokens. " +
+                "저장소는 hotdeal-monitor 하나만, 권한은 Actions: Read and write만 주세요.",
+            color = SUBTLE, fontSize = 12.sp,
+        )
     }
 }
