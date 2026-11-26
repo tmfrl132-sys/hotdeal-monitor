@@ -35,6 +35,7 @@ class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorke
     companion object {
         private const val PERIODIC = "deals-refresh"
         private const val NOW = "deals-refresh-now"
+        private const val LATER = "deals-refresh-after-collect"
 
         private val network = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -55,6 +56,17 @@ class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorke
                 builder.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
             }
             WorkManager.getInstance(context).enqueueUniqueWork(NOW, ExistingWorkPolicy.REPLACE, builder.build())
+        }
+
+        /** 수동 수집을 요청한 뒤 GitHub이 새 deals.json을 올릴 즈음 받는다. 초 단위 지연마다 한 번씩. */
+        fun runLater(context: Context, delaysSeconds: List<Long>) {
+            delaysSeconds.forEachIndexed { i, seconds ->
+                val request = OneTimeWorkRequestBuilder<RefreshWorker>()
+                    .setConstraints(network)
+                    .setInitialDelay(seconds, TimeUnit.SECONDS)
+                    .build()
+                WorkManager.getInstance(context).enqueueUniqueWork("$LATER-$i", ExistingWorkPolicy.REPLACE, request)
+            }
         }
     }
 }
